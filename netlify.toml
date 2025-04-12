@@ -1,7 +1,7 @@
 [build]
   base = "sloane-frontend-package"
   publish = "build"
-  command = "npm install --legacy-peer-deps && npm run build"
+  command = "bash netlify/build.sh"
 
 [build.environment]
   NODE_VERSION = "16"
