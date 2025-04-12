@@ -1,0 +1,14 @@
+[build]
+  base = "sloane-frontend-package"
+  publish = "build"
+  command = "npm install --legacy-peer-deps && npm run build"
+
+[build.environment]
+  NODE_VERSION = "16"
+  NPM_CONFIG_LEGACY_PEER_DEPS = "true"
+  CI = "false"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -1,0 +1,10 @@
+runtime: python39
+
+entrypoint: uvicorn main:app --host 0.0.0.0 --port $PORT
+
+env_variables:
+  GOOGLE_APPLICATION_CREDENTIALS: "credentials/google_credentials.json"
+  TWILIO_ACCOUNT_SID: "your_account_sid"
+  TWILIO_AUTH_TOKEN: "your_auth_token"
+  TWILIO_PHONE_NUMBER: "your_phone_number"
+

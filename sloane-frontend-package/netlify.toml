@@ -1,0 +1,15 @@
+[build]
+  base = "/"
+  publish = "sloane-frontend-package/build"
+  command = "cd sloane-frontend-package && bash netlify/build.sh"
+
+[build.environment]
+  NODE_VERSION = "16"
+  NPM_CONFIG_LEGACY_PEER_DEPS = "true"
+  CI = "false"
+  GOOGLE_PLACES_API_KEY = "AIzaSyBai5EagIUmMY8Vaugzkc4obqydImC-fjA"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

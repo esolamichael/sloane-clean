@@ -1,0 +1,27 @@
+runtime: python39
+entrypoint: gunicorn -w 4 -k uvicorn.workers.UvicornWorker api.call_transfer_routes:app
+
+env_variables:
+  # API configuration
+  API_HOST: "https://backend-dot-fluted-mercury-455419-n0.appspot.com"
+
+  # Twilio configuration
+  TWILIO_ACCOUNT_SID: "AC8cc057f196bec4492fd4a6e8da90aa8a"
+  TWILIO_AUTH_TOKEN: "038720004ebd6a19f703493f1faa744e"
+  TWILIO_PHONE_NUMBER: "+14245295093"
+  
+  # Google Calendar configuration
+  GOOGLE_CLIENT_ID: "116924368907-4gs2dfpmo49nkr0akahkvh1nhg2iqek.apps.googleusercongtent.com"
+  GOOGLE_CLIENT_SECRET: "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"
+  
+  # Microsoft Outlook configuration
+  OUTLOOK_CLIENT_ID: 
+  OUTLOOK_CLIENT_SECRET: 
+  OUTLOOK_TENANT_ID:
+  
+  # Notification settings
+  NOTIFY_EMAIL: "esolamichael@gmail.com"
+  NOTIFY_SMS: "+13103671817"
+
+
+

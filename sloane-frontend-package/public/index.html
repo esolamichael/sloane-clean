@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta
+      name="description"
+      content="Sloane AI Phone Answering Service for Small Businesses"
+    />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
+    />
+    <!-- Preconnect to Google Maps API domains for faster loading -->
+    <link rel="preconnect" href="https://maps.googleapis.com" />
+    <link rel="preconnect" href="https://maps.gstatic.com" />
+    <title>Sloane | AI Phone Answering Service</title>
+    
+    <!-- Direct Google Maps API loading -->
+    <script>
+      window.initGoogleMapsAPI = function() {
+        console.log('Google Maps API callback function called');
+        window.googleMapsLoaded = true;
+        // This will trigger any pending callbacks
+        if (window.googleMapsCallbacks && window.googleMapsCallbacks.length) {
+          window.googleMapsCallbacks.forEach(function(callback) {
+            callback();
+          });
+        }
+      };
+      
+      // Initialize the callbacks array
+      window.googleMapsCallbacks = [];
+      
+      // Set a flag to track if Google Maps API is loaded
+      window.googleMapsLoaded = false;
+    </script>
+    
+    <!-- Direct loading of Google Maps API with key -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBai5EagIUmMY8Vaugzkc4obqydImC-fjA&libraries=places&callback=initGoogleMapsAPI"></script>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

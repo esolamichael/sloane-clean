@@ -1,0 +1,8 @@
+runtime: python39
+entrypoint: gunicorn main:app -k uvicorn.workers.UvicornWorker
+
+env_variables:
+  API_HOST: "https://fluted-mercury-455419-n0.uc.r.appspot.com"
+
+
+

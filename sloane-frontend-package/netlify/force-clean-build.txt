@@ -1,0 +1,2 @@
+This file forces Netlify to do a fresh build by changing something in the netlify directory.
+Timestamp: 2025-04-08
