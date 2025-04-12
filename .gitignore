@@ -1,0 +1,6 @@
+node_modules/
+.cache/
+.env
+backend/ai_conversation_service/credentials/google_credentials.json
+
+sloane-frontend-package/ai-phone-service-v2/ai-phone-service-v2/backend/**/credentials/*.json
