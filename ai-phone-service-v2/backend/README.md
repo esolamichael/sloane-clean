@@ -1,0 +1,1 @@
+# Backend code has been archived\n\nThe backend code in this directory has been archived to /Users/Mike/Desktop/clean-code/archived/backend_20250415.\n\nPlease use the /app directory structure for the current implementation.
