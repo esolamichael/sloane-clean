@@ -158,6 +158,32 @@ const businessApi = {
       }, 800);
     });
   },
+  
+  // Scrape website data
+  scrapeWebsite: async (url) => {
+    try {
+      const response = await api.post('/business/scrape-website', { url });
+      return response.data;
+    } catch (error) {
+      console.error("Error scraping website:", error);
+      throw error;
+    }
+  },
+  
+  // Scrape Google Business Profile data
+  scrapeGBP: async (businessName, location = null) => {
+    try {
+      const response = await api.post('/business/scrape-gbp', { 
+        business_name: businessName, 
+        location 
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error scraping Google Business Profile:", error);
+      throw error;
+    }
+  },
+  
   // Get business profile
   getBusinessProfile: async () => {
     try {
