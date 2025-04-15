@@ -1,0 +1,15 @@
+runtime: python39
+
+entrypoint: gunicorn main:app -k uvicorn.workers.UvicornWorker
+
+env_variables:
+  API_HOST: "https://fluted-mercury-455419-n0.uc.r.appspot.com"
+  MONGODB_URL: "mongodb+srv://sloaneaiservice:yQFRj6uN7cMHsveY@cluster0.rdkfpgw.mongodb.net/?retryWrites=true&w=majority&ssl=true"
+  MONGODB_NAME: "sloane_ai_service"
+  TWILIO_ACCOUNT_SID: "AC8cc057f196bec4492fd4a6e8da90aa8a"
+  TWILIO_AUTH_TOKEN: "038720004ebd6a19f703493f1faa744e"
+  TWILIO_PHONE_NUMBER: "+14245295093"
+
+automatic_scaling:
+  max_instances: 3
+
