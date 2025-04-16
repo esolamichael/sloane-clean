@@ -8,7 +8,8 @@
   NPM_CONFIG_LEGACY_PEER_DEPS = "true"
   CI = "false"
   # Note: We're removing REACT_APP_API_URL so the app uses relative URLs
-  REACT_APP_GOOGLE_MAPS_API_KEY = "AIzaSyDM-yGOppNaE0OzGJhYU5jT-YTMDNRYTcg"
+  # API key should be set in the Netlify dashboard
+  # REACT_APP_GOOGLE_MAPS_API_KEY = "YOUR_GOOGLE_MAPS_API_KEY_HERE"
 
 [[redirects]]
   from = "/api/*"
