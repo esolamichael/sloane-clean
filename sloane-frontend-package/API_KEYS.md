@@ -1,8 +1,18 @@
 # API Key Management
 
-## Security Guidelines
+## IMPORTANT SECURITY WARNING
 
-API keys and other sensitive credentials should never be committed to the Git repository. Here are the proper ways to handle them:
+⚠️ **NEVER COMMIT API KEYS TO GIT** ⚠️
+
+API keys and sensitive credentials must never be hardcoded in any files that might be committed to the Git repository. This includes:
+- No keys in HTML files
+- No keys in JavaScript files
+- No keys in configuration files like .env
+- No keys in comments or documentation
+
+## Proper Security Guidelines
+
+Here are the secure ways to handle API keys:
 
 ### Local Development
 

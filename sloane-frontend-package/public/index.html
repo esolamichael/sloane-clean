@@ -40,8 +40,44 @@
       window.googleMapsLoaded = false;
     </script>
     
-    <!-- Direct loading of Google Maps API with key -->
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDA_z7j-LANG5wbRnS5aY17Op96POPKYPs&libraries=places&callback=initGoogleMapsAPI"></script>
+    <!-- Google Maps API is loaded dynamically with key from environment variables -->
+    <!-- The key is never hardcoded here for security -->
+    <script id="google-maps-script" async defer></script>
+    
+    <!-- Script to dynamically set the Google Maps API key -->
+    <script>
+      (function() {
+        console.log('Initializing Google Maps API loading');
+        
+        // Safely load the Google Maps API from the Netlify function
+        fetch('/.netlify/functions/getGoogleApiKey')
+          .then(function(response) { 
+            if (!response.ok) {
+              throw new Error('Failed to fetch API key: ' + response.status);
+            }
+            return response.json(); 
+          })
+          .then(function(data) {
+            if (data.apiKey) {
+              console.log('Successfully received API key from function');
+              loadGoogleMapsScript(data.apiKey);
+            } else {
+              console.error('No API key returned from function');
+              document.body.innerHTML += '<div style="color: red; padding: 20px;">Error: Google Maps API key not available</div>';
+            }
+          })
+          .catch(function(error) {
+            console.error('Error fetching API key:', error);
+            document.body.innerHTML += '<div style="color: red; padding: 20px;">Error loading Google Maps: ' + error.message + '</div>';
+          });
+        
+        function loadGoogleMapsScript(key) {
+          var script = document.getElementById('google-maps-script');
+          script.src = 'https://maps.googleapis.com/maps/api/js?key=' + key + '&libraries=places&callback=initGoogleMapsAPI';
+          console.log('Google Maps script tag updated with key');
+        }
+      })();
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
