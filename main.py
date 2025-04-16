@@ -28,14 +28,10 @@ app = FastAPI(title="Sloane AI Phone Service", version="0.1.0")
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",               # Local React dev server
-        "https://sloane-ai-phone.netlify.app", # Production Netlify site
-        "https://fluted-mercury-455419-n0.uc.r.appspot.com" # Backend URL
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=False,  # Changed to False to work with allow_origins=["*"]
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With"]
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "X-Business-ID", "Accept"]
 )
 
 # Include existing routers
@@ -111,10 +107,32 @@ def calendar_availability():
     return {"message": "Calendar availability endpoint"}
 
 @app.middleware("http")
-async def log_requests(request: Request, call_next):
-    """Log all requests"""
+async def cors_and_log_middleware(request: Request, call_next):
+    """Add CORS headers and log requests"""
+    # Log the request
     logger.info(f"Request: {request.method} {request.url}")
+    
+    # Handle CORS preflight requests
+    if request.method == "OPTIONS":
+        # Create a response with appropriate CORS headers
+        from fastapi.responses import JSONResponse
+        response = JSONResponse(
+            content={"message": "CORS preflight handled"},
+            status_code=200,
+        )
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, X-Business-ID, Accept'
+        response.headers['Access-Control-Max-Age'] = '86400'  # 24 hours cache for preflight requests
+        return response
+    
+    # Continue with normal request
     response = await call_next(request)
+    
+    # Add CORS headers to all responses
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    
     return response
 
 if __name__ == "__main__":

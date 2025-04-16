@@ -118,13 +118,11 @@ const getGoogleApiKey = async () => {
       return process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
     }
     
-    console.log('No API key available from any source, using hardcoded fallback');
-    // Hardcoded fallback for production
-    return 'AIzaSyBai5EagIUmMY8Vaugzkc4obqydImC-fjA';
+    console.error('No API key available from any source');
+    throw new Error('Failed to get Google Maps API key');
   } catch (error) {
     console.error('Error fetching Google API key:', error);
-    // Return fallback key instead of throwing
-    return 'AIzaSyBai5EagIUmMY8Vaugzkc4obqydImC-fjA';
+    throw error;
   }
 };
 
@@ -165,20 +163,22 @@ const businessApi = {
   scrapeWebsite: async (url) => {
     try {
       console.log(`Attempting to scrape website: ${url}`);
-      // Log the actual endpoint we're hitting
-      console.log(`Endpoint: ${api.defaults.baseURL}/business/scrape-website`);
       
       // Add business_id header for authorization
       const headers = {
         'X-Business-ID': 'test_business_id'
       };
       
-      // Use direct fetch API to avoid potential axios issues
-      const response = await fetch(`${api.defaults.baseURL}/business/scrape-website`, {
+      // Explicitly use the App Engine backend URL
+      const apiBaseUrl = 'https://fluted-mercury-455419-n0.uc.r.appspot.com/api';
+      
+      // Use direct fetch with proper CORS settings
+      const response = await fetch(`${apiBaseUrl}/business/scrape-website`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...headers
+          ...headers,
+          'Accept': 'application/json'
         },
         body: JSON.stringify({ url }),
         mode: 'cors',
@@ -194,7 +194,6 @@ const businessApi = {
       return data;
     } catch (error) {
       console.error("Error scraping website:", error);
-      // Throw error to let the component handle it
       throw error;
     }
   },
@@ -203,20 +202,22 @@ const businessApi = {
   scrapeGBP: async (businessName, location = null) => {
     try {
       console.log(`Attempting to scrape GBP for business: ${businessName}`);
-      // Log the actual endpoint we're hitting
-      console.log(`Endpoint: ${api.defaults.baseURL}/business/scrape-gbp`);
       
       // Add business_id header for authorization
       const headers = {
         'X-Business-ID': 'test_business_id'
       };
       
-      // Use direct fetch API to avoid potential axios issues
-      const response = await fetch(`${api.defaults.baseURL}/business/scrape-gbp`, {
+      // Explicitly use the App Engine backend URL
+      const apiBaseUrl = 'https://fluted-mercury-455419-n0.uc.r.appspot.com/api';
+      
+      // Use direct fetch with proper CORS settings
+      const response = await fetch(`${apiBaseUrl}/business/scrape-gbp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...headers
+          ...headers,
+          'Accept': 'application/json'
         },
         body: JSON.stringify({ 
           business_name: businessName, 
@@ -235,7 +236,6 @@ const businessApi = {
       return data;
     } catch (error) {
       console.error("Error scraping Google Business Profile:", error);
-      // Throw error to let the component handle it
       throw error;
     }
   },
