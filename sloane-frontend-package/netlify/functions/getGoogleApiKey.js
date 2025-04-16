@@ -15,13 +15,9 @@ exports.handler = async function(event, context) {
     };
   }
   
-  // IMPORTANT SECURITY NOTE: For actual production use, you should never hardcode API keys
-  // in a function. However, since this is a temporary fix for a debugging issue,
-  // we're providing the API key directly in the function code.
-  // In a production environment, you should always use environment variables.
-  
-  // This is the current API key that was added to Netlify's environment variables
-  const googleMapsApiKey = "AIzaSyCzeU0fgbvLUM6N39RgxuK9amo-rL_raZk";
+  // Get API key from environment variables only
+  // NEVER hardcode API keys in code
+  const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
   
   // Check if we have the API key
   if (!googleMapsApiKey) {
