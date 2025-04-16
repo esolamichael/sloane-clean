@@ -16,6 +16,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `cd ai-phone-service-v2 && python -m tests.test_ai_phone_service TestAIPhoneService.test_greeting` - Run specific test
 - `cd ai-phone-service-v2 && python -m tests.integration_test` - Run integration tests
 
+#### Deployment Instructions
+To deploy the backend to Google App Engine:
+1. Install Google Cloud SDK: https://cloud.google.com/sdk/docs/install
+2. Login: `gcloud auth login`
+3. Set project: `gcloud config set project fluted-mercury-455419`
+4. Deploy: `gcloud app deploy app.yaml --quiet`
+
 ## Code Style Guidelines
 
 ### JavaScript/React
