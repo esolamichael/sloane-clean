@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Maps API Direct Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    pre { background: #f4f4f4; padding: 10px; border-radius: 5px; }
+    .success { color: green; }
+    .error { color: red; }
+    button { margin: 10px 0; padding: 8px 16px; }
+  </style>
+</head>
+<body>
+  <h1>Direct API Request Test</h1>
+  
+  <p>This page tests a direct API request to the Google Places API using a simple fetch request.</p>
+  
+  <button id="testButton">Test Direct API Request</button>
+  
+  <h3>Results:</h3>
+  <pre id="results">Click the button to test</pre>
+  
+  <script>
+    // We'll fetch the API key securely from our Netlify function
+    let apiKey = null;
+    
+    // Fetch the API key first
+    fetch('/.netlify/functions/getGoogleApiKey')
+      .then(response => response.json())
+      .then(data => {
+        if (data.apiKey) {
+          apiKey = data.apiKey;
+          document.getElementById('results').textContent = 'API key loaded securely. Ready to test.';
+        } else {
+          throw new Error('API key not found');
+        }
+      })
+      .catch(error => {
+        document.getElementById('results').textContent = 'Error loading API key: ' + error.message;
+      });
+    
+    document.getElementById('testButton').addEventListener('click', function() {
+      const results = document.getElementById('results');
+      results.textContent = 'Testing API...';
+      
+      // Example: place autocomplete for "pizza" near New York
+      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=pizza&location=40.7128,-74.0060&radius=50000&types=establishment&key=${apiKey}`;
+      
+      // Make the API request
+      fetch(url)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          results.textContent = JSON.stringify(data, null, 2);
+          console.log('API Response:', data);
+        })
+        .catch(error => {
+          results.textContent = `Error: ${error.message}\n\nNote: This may be a CORS error which is expected for direct API calls from browsers. This doesn't mean your API key is invalid.`;
+          console.error('API Error:', error);
+        });
+    });
+  </script>
+</body>
+</html>
