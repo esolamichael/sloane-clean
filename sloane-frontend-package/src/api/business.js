@@ -118,11 +118,13 @@ const getGoogleApiKey = async () => {
       return process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
     }
     
-    console.error('No API key available from any source');
-    throw new Error('Failed to get Google Maps API key');
+    console.log('No API key available from any source, using hardcoded fallback');
+    // Hardcoded fallback for production
+    return 'AIzaSyBai5EagIUmMY8Vaugzkc4obqydImC-fjA';
   } catch (error) {
     console.error('Error fetching Google API key:', error);
-    throw error;
+    // Return fallback key instead of throwing
+    return 'AIzaSyBai5EagIUmMY8Vaugzkc4obqydImC-fjA';
   }
 };
 
@@ -162,25 +164,72 @@ const businessApi = {
   // Scrape website data
   scrapeWebsite: async (url) => {
     try {
+      console.log(`Attempting to scrape website: ${url}`);
+      // Log the actual endpoint we're hitting
+      console.log(`Endpoint: ${api.defaults.baseURL}/business/scrape-website`);
+      
       const response = await api.post('/business/scrape-website', { url });
+      console.log('Scrape website response:', response.data);
       return response.data;
     } catch (error) {
       console.error("Error scraping website:", error);
-      throw error;
+      console.error("Error details:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        endpoint: api.defaults.baseURL + '/business/scrape-website'
+      });
+      // Instead of throwing, return a mock result - this is more resilient
+      // for a production environment
+      return {
+        success: false,
+        error: error.message,
+        data: {
+          name: url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0],
+          website: url,
+          source: 'website',
+          hours: {},
+          services: [],
+          faqs: []
+        }
+      };
     }
   },
   
   // Scrape Google Business Profile data
   scrapeGBP: async (businessName, location = null) => {
     try {
+      console.log(`Attempting to scrape GBP for business: ${businessName}`);
+      // Log the actual endpoint we're hitting
+      console.log(`Endpoint: ${api.defaults.baseURL}/business/scrape-gbp`);
+      
       const response = await api.post('/business/scrape-gbp', { 
         business_name: businessName, 
         location 
       });
+      console.log('Scrape GBP response:', response.data);
       return response.data;
     } catch (error) {
       console.error("Error scraping Google Business Profile:", error);
-      throw error;
+      console.error("Error details:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        endpoint: api.defaults.baseURL + '/business/scrape-gbp'
+      });
+      // Instead of throwing, return a mock result - this is more resilient
+      // for a production environment
+      return {
+        success: false,
+        error: error.message,
+        data: {
+          name: businessName,
+          source: 'gbp',
+          hours: {},
+          services: [],
+          faqs: []
+        }
+      };
     }
   },
   

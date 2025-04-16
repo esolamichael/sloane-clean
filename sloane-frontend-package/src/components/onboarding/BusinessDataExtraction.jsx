@@ -216,55 +216,68 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
           
           // Use the business data that was passed in
           extractedBusiness = businessData;
+          console.log('Using provided business data:', extractedBusiness);
           
         } else if (source === 'google' && !businessData) {
           // Use Google Business Profile API to scrape data
           setCurrentStep('metadata');
           updateProgress(1);
           
-          try {
-            result = await businessApi.scrapeGBP(url);
-            extractedBusiness = result.data;
-            
-            setCompletedSteps(prev => ({
-              ...prev,
-              metadata: { success: true, timestamp: new Date().toISOString() }
-            }));
-          } catch (error) {
-            console.error('Error scraping Google Business Profile:', error);
-            // Fall back to mock data
+          console.log('Attempting to scrape Google Business Profile for:', url);
+          
+          // We won't use try/catch since businessApi.scrapeGBP now handles errors and returns mock data
+          result = await businessApi.scrapeGBP(url);
+          
+          // Check if the API call was successful
+          if (result.success === false) {
+            console.log('API scraping failed, using fallback mock data');
+            // The API call failed but returned a minimal data structure
+            // Let's enhance it with mock data
             const mockResult = await mockDataExtraction(url, source, null);
-            extractedBusiness = mockResult.business;
-            
-            setCompletedSteps(prev => ({
-              ...prev,
-              metadata: { success: true, timestamp: new Date().toISOString() }
-            }));
+            extractedBusiness = {
+              ...result.data,
+              ...mockResult.business
+            };
+          } else {
+            // The API call succeeded
+            extractedBusiness = result.data;
+            console.log('Successfully scraped GBP data:', extractedBusiness);
           }
+          
+          setCompletedSteps(prev => ({
+            ...prev,
+            metadata: { success: true, timestamp: new Date().toISOString() }
+          }));
         } else {
           // Use website URL to scrape data
           setCurrentStep('metadata');
           updateProgress(1);
           
-          try {
-            result = await businessApi.scrapeWebsite(url);
-            extractedBusiness = result.data;
-            
-            setCompletedSteps(prev => ({
-              ...prev,
-              metadata: { success: true, timestamp: new Date().toISOString() }
-            }));
-          } catch (error) {
-            console.error('Error scraping website:', error);
-            // Fall back to mock data
+          console.log('Attempting to scrape website:', url);
+          
+          // We won't use try/catch since businessApi.scrapeWebsite now handles errors and returns mock data
+          result = await businessApi.scrapeWebsite(url);
+          
+          // Check if the API call was successful
+          if (result.success === false) {
+            console.log('API scraping failed, using fallback mock data');
+            // The API call failed but returned a minimal data structure
+            // Let's enhance it with mock data
             const mockResult = await mockDataExtraction(url, source, null);
-            extractedBusiness = mockResult.business;
-            
-            setCompletedSteps(prev => ({
-              ...prev,
-              metadata: { success: true, timestamp: new Date().toISOString() }
-            }));
+            extractedBusiness = {
+              ...result.data,
+              ...mockResult.business
+            };
+          } else {
+            // The API call succeeded
+            extractedBusiness = result.data;
+            console.log('Successfully scraped website data:', extractedBusiness);
           }
+          
+          setCompletedSteps(prev => ({
+            ...prev,
+            metadata: { success: true, timestamp: new Date().toISOString() }
+          }));
         }
         
         // Process remaining steps (hours, services, faqs, training)

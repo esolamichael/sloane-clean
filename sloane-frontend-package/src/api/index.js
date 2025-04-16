@@ -7,7 +7,9 @@ const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'https://fluted-mercury-455419-n0.uc.r.appspot.com/api',
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  // Add longer timeout for scraping operations
+  timeout: 30000
 });
 
 // Flag to prevent multiple refresh token requests
