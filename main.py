@@ -18,6 +18,23 @@ from mongodb_simple import connect_to_mongodb, close_mongodb_connection, insert_
 # Load environment variables
 load_dotenv()
 
+# Try to load secrets from Secret Manager if in App Engine environment
+try:
+    from app.utils.secrets import get_project_id, get_twilio_auth_token, should_use_secret_manager
+    
+    if should_use_secret_manager():
+        project_id = get_project_id()
+        
+        # Get Twilio auth token from Secret Manager
+        twilio_auth_token = get_twilio_auth_token(project_id)
+        if twilio_auth_token:
+            # Set as environment variable so it's available to the app
+            os.environ["TWILIO_AUTH_TOKEN"] = twilio_auth_token
+            print("Loaded Twilio auth token from Secret Manager")
+except ImportError:
+    # If Secret Manager is not available, continue using environment variables
+    print("Secret Manager not available for Twilio auth token")
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

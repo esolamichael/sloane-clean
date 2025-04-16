@@ -3,12 +3,39 @@ import os
 from dotenv import load_dotenv
 import pymongo
 from pymongo import MongoClient
+import json
 
 # Load environment variables
 load_dotenv()
 
-# MongoDB connection
-MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+# Get MongoDB connection info - try to load from Secret Manager in production
+try:
+    # Import the secrets utilities
+    from app.utils.secrets import get_mongodb_connection_string, get_project_id, should_use_secret_manager
+    
+    # Check if we should use Secret Manager
+    if should_use_secret_manager():
+        # Get MongoDB credentials from Secret Manager
+        project_id = get_project_id()
+        mongo_conn_string = get_mongodb_connection_string(project_id)
+        
+        if mongo_conn_string:
+            MONGODB_URL = mongo_conn_string
+            print("Using MongoDB connection from Secret Manager")
+        else:
+            # Fall back to environment variable if secret not found
+            MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+            print("Failed to load MongoDB URL from Secret Manager, using environment variable")
+    else:
+        # In development, use environment variables
+        MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+        print("Using MongoDB connection from environment variables")
+except ImportError:
+    # If Secret Manager is not available, use environment variables
+    MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+    print("Secret Manager not available, using environment variables for MongoDB connection")
+
+# Get MongoDB database name from environment variables
 MONGODB_NAME = os.getenv("MONGODB_NAME", "sloane_ai_service")
 
 # Create a singleton client instance
