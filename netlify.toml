@@ -7,17 +7,23 @@
   NODE_VERSION = "16"
   NPM_CONFIG_LEGACY_PEER_DEPS = "true"
   CI = "false"
-  REACT_APP_API_URL = "https://fluted-mercury-455419-n0.uc.r.appspot.com/api"
+  # Note: We're removing REACT_APP_API_URL so the app uses relative URLs
   REACT_APP_GOOGLE_MAPS_API_KEY = "AIzaSyBai5EagIUmMY8Vaugzkc4obqydImC-fjA"
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-  
+# This redirect must come first - for API calls
 [[redirects]]
   from = "/api/*"
   to = "https://fluted-mercury-455419-n0.uc.r.appspot.com/api/:splat"
   status = 200
   force = true
-  headers = {Access-Control-Allow-Origin = "*"}
+  headers = {
+    Access-Control-Allow-Origin = "*",
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS",
+    Access-Control-Allow-Headers = "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  }
+
+# This redirect must come last - SPA fallback
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

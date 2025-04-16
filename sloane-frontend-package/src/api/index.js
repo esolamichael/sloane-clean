@@ -2,14 +2,32 @@
 import axios from 'axios';
 import authApi from './auth';
 
+// Log the environment variables for debugging
+console.log('API Configuration:', {
+  api_url: process.env.REACT_APP_API_URL,
+  node_env: process.env.NODE_ENV
+});
+
+// Determine the API base URL based on environment
+let apiBaseUrl = '/api'; // Default to relative URL for production
+
+// If running locally or we have a specific API URL set, use that
+if (process.env.NODE_ENV === 'development' || process.env.REACT_APP_API_URL) {
+  apiBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+}
+
+console.log('Using API base URL:', apiBaseUrl);
+
 // Create axios instance with default config
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'https://fluted-mercury-455419-n0.uc.r.appspot.com/api',
+  baseURL: apiBaseUrl,
   headers: {
     'Content-Type': 'application/json'
   },
   // Add longer timeout for scraping operations
-  timeout: 30000
+  timeout: 60000, // 60 seconds
+  // Use credentials for cross-origin requests
+  withCredentials: false
 });
 
 // Flag to prevent multiple refresh token requests
