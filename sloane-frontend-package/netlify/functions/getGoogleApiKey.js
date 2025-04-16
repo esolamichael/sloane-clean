@@ -41,13 +41,13 @@ exports.handler = async function(event, context) {
   
   // Get the API key from environment variables
   // Make sure to set this in your Netlify environment variables
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
   
   console.log('API Key exists:', !!apiKey);
   
   if (!apiKey) {
     console.log('⛔ No API key found in environment variables');
-    console.log('Looking for GOOGLE_PLACES_API_KEY variable');
+    console.log('Looking for REACT_APP_GOOGLE_MAPS_API_KEY or GOOGLE_PLACES_API_KEY variables');
     
     return { 
       statusCode: 500, 
