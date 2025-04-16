@@ -23,121 +23,10 @@ import PsychologyIcon from '@mui/icons-material/Psychology';
 
 import businessApi from '../../api/business';
 
-// Data extraction API that uses our mock business data
-const mockDataExtraction = async (url, source, businessData = null) => {
-  // Simulate different data extraction durations
-  const steps = [
-    { id: 'connect', time: 1000, success: true },
-    { id: 'metadata', time: 1500, success: true },
-    { id: 'hours', time: 1200, success: true },
-    { id: 'services', time: 2000, success: true },
-    { id: 'faqs', time: 1800, success: true },
-    { id: 'training', time: 2500, success: true }
-  ];
-
-  const results = {};
-
-  for (const step of steps) {
-    await new Promise(resolve => setTimeout(resolve, step.time));
-    results[step.id] = { 
-      success: step.success,
-      timestamp: new Date().toISOString()
-    };
-  }
-
-  // If businessData is provided (from Google Business), use that
-  if (businessData) {
-    return {
-      steps: results,
-      business: businessData
-    };
-  }
-  
-  // Otherwise use default data based on source
-  let business;
-  
-  if (source === 'google') {
-    // Simulate fetching a Google business by hardcoding a business ID
-    try {
-      const result = await businessApi.getGoogleBusinessDetails('business-1');
-      business = result.business;
-    } catch (error) {
-      console.error('Failed to fetch Google business:', error);
-      // Fallback to default business data
-      business = {
-        name: 'ABC Dental Care',
-        address: '123 Main Street, Anytown, USA',
-        phone: '(555) 123-4567',
-        website: url || 'https://abcdentalcare.com',
-        hours: {
-          monday: { isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM' },
-          tuesday: { isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM' },
-          wednesday: { isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM' },
-          thursday: { isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM' },
-          friday: { isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM' },
-          saturday: { isOpen: false, openTime: '', closeTime: '' },
-          sunday: { isOpen: false, openTime: '', closeTime: '' }
-        },
-        services: [
-          { name: 'Regular Checkup', description: 'Comprehensive dental examination', price: '$75' },
-          { name: 'Teeth Cleaning', description: 'Professional dental cleaning', price: '$120' },
-          { name: 'Tooth Filling', description: 'Dental filling procedure', price: '$150-$300' },
-          { name: 'Root Canal', description: 'Root canal treatment', price: '$700-$1,500' }
-        ],
-        faqs: [
-          { 
-            question: 'Do you accept insurance?', 
-            answer: 'Yes, we accept most major insurance plans. Please call our office to verify your specific coverage.' 
-          },
-          { 
-            question: 'How often should I have a dental checkup?', 
-            answer: 'We recommend visiting for a checkup and cleaning every 6 months.' 
-          },
-          { 
-            question: 'Do you offer emergency dental services?', 
-            answer: 'Yes, we provide emergency dental care. Please call our office immediately if you have a dental emergency.' 
-          }
-        ]
-      };
-    }
-  } else {
-    // Website-based extraction
-    business = {
-      name: 'Your Business Name',
-      address: '123 Main Street, Anytown, USA',
-      phone: '(555) 123-4567',
-      website: url,
-      hours: {
-        monday: { isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM' },
-        tuesday: { isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM' },
-        wednesday: { isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM' },
-        thursday: { isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM' },
-        friday: { isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM' },
-        saturday: { isOpen: false, openTime: '', closeTime: '' },
-        sunday: { isOpen: false, openTime: '', closeTime: '' }
-      },
-      services: [
-        { name: 'Service 1', description: 'Description of service 1', price: '$XX' },
-        { name: 'Service 2', description: 'Description of service 2', price: '$XX' }
-      ],
-      faqs: [
-        { 
-          question: 'Frequently asked question 1?', 
-          answer: 'Answer to question 1.' 
-        },
-        { 
-          question: 'Frequently asked question 2?', 
-          answer: 'Answer to question 2.' 
-        }
-      ]
-    };
-  }
-
-  return {
-    steps: results,
-    business: business
-  };
-};
+// Note: Mock data extraction has been removed.
+// Instead, we now always use the real API for data extraction.
+// If the API fails for any reason, we show an error to the user
+// rather than silently falling back to mock data.
 
 const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError }) => {
   const [currentStep, setCurrentStep] = useState('connect');
@@ -259,43 +148,60 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
               throw new Error('Please enter a valid business name');
             }
             
-            // Now proceed with scraping
+            // Now proceed with scraping - ensure we're using the real API
+            console.log('Making real API call to scrape GBP with business name:', url);
             result = await businessApi.scrapeGBP(url);
             
+            console.log('GBP scraping response:', result);
+            
             if (result && result.data) {
-              console.log('Successfully scraped GBP data:', result);
+              console.log('✅ Successfully scraped real GBP data:', result);
               extractedBusiness = result.data;
               
+              // Set success state for the metadata step
               setCompletedSteps(prev => ({
                 ...prev,
                 metadata: { success: true, timestamp: new Date().toISOString() }
               }));
             } else if (result && result.success === false) {
-              console.error('Backend returned error:', result);
-              throw new Error(result.message || 'Backend returned an error during GBP scraping');
+              console.error('❌ Backend returned GBP scraping error:', result);
+              
+              // Show the specific error from the backend
+              const errorMessage = result.error || 'Backend returned an error during GBP scraping';
+              throw new Error(errorMessage);
             } else {
-              console.error('Unexpected response format:', result);
+              console.error('❌ Unexpected GBP response format:', result);
               throw new Error('Unexpected response format from GBP scraping service');
             }
           } catch (error) {
-            console.error('Error scraping Google Business Profile:', error);
+            console.error('❌ Error scraping Google Business Profile:', error);
             console.error('Error details:', {
               message: error.message,
               name: error.name,
               stack: error.stack
             });
             
-            // Show error to user but still continue with mock data
-            setError(`Error scraping Google Business Profile: ${error.message}. Using sample data instead.`);
+            // Set a clear error message for the user
+            let errorMessage = `Error retrieving business data: ${error.message}`;
+            if (error.message.includes('API key')) {
+              errorMessage = "API key issue detected. Please contact support to resolve this.";
+            }
             
-            // Fall back to mock data
-            const mockResult = await mockDataExtraction(url, source, null);
-            extractedBusiness = mockResult.business;
+            setError(errorMessage);
             
+            // Important: DO NOT use mock data - throw error to prevent proceeding
+            if (onError) {
+              onError(error);
+            }
+            
+            // Mark the metadata step as failed
             setCompletedSteps(prev => ({
               ...prev,
-              metadata: { success: true, timestamp: new Date().toISOString() }
+              metadata: { success: false, timestamp: new Date().toISOString(), error: error.message }
             }));
+            
+            // Exit function to prevent moving forward with mock data
+            throw error;
           }
         } else {
           // Use website URL to scrape data
@@ -366,17 +272,21 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
               stack: error.stack
             });
             
-            // Show error to user but still continue with mock data
-            setError(`Error scraping website: ${error.message}. Using sample data instead.`);
+            // Show error to user
+            setError(`Error scraping website: ${error.message}. Please try again or contact support.`);
             
-            // Fall back to mock data
-            const mockResult = await mockDataExtraction(url, source, null);
-            extractedBusiness = mockResult.business;
-            
+            // Set error state and exit
             setCompletedSteps(prev => ({
               ...prev,
-              metadata: { success: true, timestamp: new Date().toISOString() }
+              metadata: { success: false, timestamp: new Date().toISOString(), error: error.message }
             }));
+            
+            // Call error handler
+            if (onError) {
+              onError(error);
+            }
+            
+            throw error;
           }
         }
         

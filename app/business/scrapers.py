@@ -382,18 +382,69 @@ class GBPScraper:
             import aiohttp
             import urllib.parse
             
-            # Attempt to get the API key from environment variable
-            api_key = os.environ.get('GOOGLE_MAPS_API_KEY')
+            # Get API key using Secret Manager in production or environment variables in development
+            import os
+            
+            # Check if we're running in production with Secret Manager
+            use_secret_manager = os.environ.get('USE_SECRET_MANAGER', 'false').lower() == 'true'
+            api_key = None
+            
+            if use_secret_manager:
+                try:
+                    # Import Secret Manager client only when needed
+                    from google.cloud import secretmanager
+                    
+                    # Get the project ID from the environment or compute from the service name
+                    project_id = os.environ.get('GOOGLE_CLOUD_PROJECT')
+                    if not project_id:
+                        # App Engine sets service name in environment
+                        app_engine_service = os.environ.get('GAE_SERVICE', 'default')
+                        if '-' in app_engine_service:
+                            project_id = app_engine_service.split('-')[0]
+                    
+                    if not project_id:
+                        # If still no project ID, try to get it from the metadata server
+                        try:
+                            import requests
+                            # This URL is only available on Google Cloud
+                            metadata_url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+                            project_id = requests.get(
+                                metadata_url, 
+                                headers={"Metadata-Flavor": "Google"}
+                            ).text
+                        except Exception as e:
+                            logger.warning(f"Could not get project ID from metadata server: {str(e)}")
+                    
+                    if project_id:
+                        # Create the Secret Manager client
+                        client = secretmanager.SecretManagerServiceClient()
+                        
+                        # Access the secret by name - use conventional secret names
+                        secret_name = "GOOGLE_MAPS_API_KEY"
+                        secret_path = f"projects/{project_id}/secrets/{secret_name}/versions/latest"
+                        
+                        # Get the secret value
+                        response = client.access_secret_version(request={"name": secret_path})
+                        api_key = response.payload.data.decode("UTF-8")
+                        logger.info(f"Successfully retrieved API key from Secret Manager")
+                except Exception as e:
+                    logger.error(f"Error accessing Secret Manager: {str(e)}")
+            
+            # Fall back to environment variables if Secret Manager fails or we're in development
             if not api_key:
-                # Fallback to potential other environment variables
-                api_key = os.environ.get('GOOGLE_PLACES_API_KEY') or os.environ.get('PLACES_API_KEY')
-                
+                logger.info("Attempting to get API key from environment variables")
+                api_key = os.environ.get('GOOGLE_MAPS_API_KEY')
+                if not api_key:
+                    # Fallback to potential other environment variables
+                    api_key = os.environ.get('GOOGLE_PLACES_API_KEY') or os.environ.get('PLACES_API_KEY')
+            
+            # If still no API key, return an error
             if not api_key:
                 # If no API key found, return a specific error message to indicate this issue
-                logger.error("No Google Places API key found in environment variables")
+                logger.error("Could not retrieve Google Places API key from Secret Manager or environment variables")
                 return {
                     "error": "Google Places API key not configured", 
-                    "details": "The server is missing the necessary API key to access Google's services.",
+                    "details": "The server could not access the necessary API key for Google's services.",
                     "business_name": business_name
                 }
             
