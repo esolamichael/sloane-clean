@@ -1,5 +1,5 @@
 # Proxy API requests to backend - this must be first
-/api/*  https://fluted-mercury-455419-n0.uc.r.appspot.com/api/:splat  200!
+/api/*  https://clean-code-app-1744825963.uc.r.appspot.com/api/:splat  200!
 
 # Frontend routing
 /signup    /onboarding    301!

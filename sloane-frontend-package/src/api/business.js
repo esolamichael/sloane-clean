@@ -170,7 +170,7 @@ const businessApi = {
       };
       
       // Explicitly use the App Engine backend URL
-      const apiBaseUrl = 'https://fluted-mercury-455419-n0.uc.r.appspot.com/api';
+      const apiBaseUrl = 'https://clean-code-app-1744825963.uc.r.appspot.com/api';
       
       // Use direct fetch with proper CORS settings
       const response = await fetch(`${apiBaseUrl}/business/scrape-website`, {
@@ -209,7 +209,7 @@ const businessApi = {
       };
       
       // Explicitly use the App Engine backend URL
-      const apiBaseUrl = 'https://fluted-mercury-455419-n0.uc.r.appspot.com/api';
+      const apiBaseUrl = 'https://clean-code-app-1744825963.uc.r.appspot.com/api';
       
       // Use direct fetch with proper CORS settings
       const response = await fetch(`${apiBaseUrl}/business/scrape-gbp`, {
