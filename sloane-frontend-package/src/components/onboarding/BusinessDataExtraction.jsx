@@ -247,15 +247,36 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
           updateProgress(1);
           
           try {
+            console.log(`Attempting to scrape website URL: ${url}`);
             result = await businessApi.scrapeWebsite(url);
-            extractedBusiness = result.data;
             
-            setCompletedSteps(prev => ({
-              ...prev,
-              metadata: { success: true, timestamp: new Date().toISOString() }
-            }));
+            if (result && result.data) {
+              console.log('Successfully scraped website data:', result);
+              extractedBusiness = result.data;
+              
+              setCompletedSteps(prev => ({
+                ...prev,
+                metadata: { success: true, timestamp: new Date().toISOString() }
+              }));
+            } else if (result && result.success === false) {
+              console.error('Backend returned error:', result);
+              throw new Error(result.message || 'Backend returned an error during scraping');
+            } else {
+              console.error('Unexpected response format:', result);
+              throw new Error('Unexpected response format from scraping service');
+            }
           } catch (error) {
             console.error('Error scraping website:', error);
+            // Add more detailed error information
+            console.error('Error details:', {
+              message: error.message,
+              name: error.name,
+              stack: error.stack
+            });
+            
+            // Show error to user but still continue with mock data
+            setError(`Error scraping website: ${error.message}. Using sample data instead.`);
+            
             // Fall back to mock data
             const mockResult = await mockDataExtraction(url, source, null);
             extractedBusiness = mockResult.business;

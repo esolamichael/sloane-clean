@@ -169,8 +169,20 @@ const businessApi = {
         'X-Business-ID': 'test_business_id'
       };
       
-      // Explicitly use the App Engine backend URL
-      const apiBaseUrl = 'https://clean-code-app-1744825963.uc.r.appspot.com/api';
+      // Get API URL from the environment or use default
+      let apiBaseUrl = '';
+      
+      // If running locally, use the local API
+      if (process.env.NODE_ENV === 'development') {
+        apiBaseUrl = 'http://localhost:8000/api';
+        console.log('Using local API for scraping:', apiBaseUrl);
+      } else {
+        // For production, use relative URL or App Engine URL depending on deployment
+        apiBaseUrl = '/api'; // Use relative URL for Netlify -> App Engine proxy
+        console.log('Using production API for scraping:', apiBaseUrl);
+      }
+      
+      console.log(`Making request to: ${apiBaseUrl}/business/scrape-website`);
       
       // Use direct fetch with proper CORS settings
       const response = await fetch(`${apiBaseUrl}/business/scrape-website`, {
@@ -186,6 +198,8 @@ const businessApi = {
       });
       
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`HTTP error! Status: ${response.status}, Body: ${errorText}`);
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
       
@@ -208,8 +222,20 @@ const businessApi = {
         'X-Business-ID': 'test_business_id'
       };
       
-      // Explicitly use the App Engine backend URL
-      const apiBaseUrl = 'https://clean-code-app-1744825963.uc.r.appspot.com/api';
+      // Get API URL from the environment or use default
+      let apiBaseUrl = '';
+      
+      // If running locally, use the local API
+      if (process.env.NODE_ENV === 'development') {
+        apiBaseUrl = 'http://localhost:8000/api';
+        console.log('Using local API for scraping GBP:', apiBaseUrl);
+      } else {
+        // For production, use relative URL or App Engine URL depending on deployment
+        apiBaseUrl = '/api'; // Use relative URL for Netlify -> App Engine proxy
+        console.log('Using production API for scraping GBP:', apiBaseUrl);
+      }
+      
+      console.log(`Making request to: ${apiBaseUrl}/business/scrape-gbp`);
       
       // Use direct fetch with proper CORS settings
       const response = await fetch(`${apiBaseUrl}/business/scrape-gbp`, {
@@ -228,6 +254,8 @@ const businessApi = {
       });
       
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`HTTP error! Status: ${response.status}, Body: ${errorText}`);
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
       
