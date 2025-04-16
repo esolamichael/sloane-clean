@@ -48,8 +48,20 @@
     <script>
       (function() {
         console.log('Initializing Google Maps API loading');
+        var isGoogleMapsLoaded = false;
         
-        // Safely load the Google Maps API from the Netlify function
+        // For direct testing purpose - this variable will be replaced during build
+        // with the actual environment variable if available
+        var envApiKey = '%REACT_APP_GOOGLE_MAPS_API_KEY%';
+        
+        // If we have an environment variable and it's not the placeholder
+        if (envApiKey && !envApiKey.includes('REACT_APP_')) {
+          console.log('Using API key from environment variable');
+          loadGoogleMapsScript(envApiKey);
+          return;
+        }
+        
+        // Try to get the API key from the Netlify function
         fetch('/.netlify/functions/getGoogleApiKey')
           .then(function(response) { 
             if (!response.ok) {
@@ -63,15 +75,21 @@
               loadGoogleMapsScript(data.apiKey);
             } else {
               console.error('No API key returned from function');
-              document.body.innerHTML += '<div style="color: red; padding: 20px;">Error: Google Maps API key not available</div>';
+              // Just log the error but don't block the page
+              console.error('Google Maps functionality may not work properly');
             }
           })
           .catch(function(error) {
             console.error('Error fetching API key:', error);
-            document.body.innerHTML += '<div style="color: red; padding: 20px;">Error loading Google Maps: ' + error.message + '</div>';
+            // Just log the error but don't block the page
+            console.error('Google Maps functionality may not work properly');
           });
         
         function loadGoogleMapsScript(key) {
+          // Prevent loading multiple times
+          if (isGoogleMapsLoaded) return;
+          isGoogleMapsLoaded = true;
+          
           var script = document.getElementById('google-maps-script');
           script.src = 'https://maps.googleapis.com/maps/api/js?key=' + key + '&libraries=places&callback=initGoogleMapsAPI';
           console.log('Google Maps script tag updated with key');
