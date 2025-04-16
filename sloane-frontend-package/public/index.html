@@ -21,78 +21,175 @@
     <title>Sloane | AI Phone Answering Service</title>
     
     <!-- Direct Google Maps API loading -->
+    <!-- Google Maps API Initialization -->
     <script>
+      // Configuration and state tracking
+      window.googleMapsConfig = {
+        apiVersion: '3.53',
+        libraries: ['places'],
+        retryCount: 0,
+        maxRetries: 3,
+        retryDelay: 3000,
+        loadTimestamp: new Date().getTime(),
+        checkInterval: null,
+        status: 'INITIALIZING'
+      };
+      
+      // Initialize callback framework for Google Maps API
+      window.googleMapsCallbacks = [];
+      window.googleMapsLoaded = false;
+      window.googleApiError = null;
+      
+      // Callback function that Google Maps API will call when loaded
       window.initGoogleMapsAPI = function() {
-        console.log('Google Maps API callback function called');
+        console.log('[Google Maps] API callback function called successfully!');
         window.googleMapsLoaded = true;
-        // This will trigger any pending callbacks
+        window.googleMapsConfig.status = 'LOADED';
+        
+        // Clear any check interval
+        if (window.googleMapsConfig.checkInterval) {
+          clearInterval(window.googleMapsConfig.checkInterval);
+        }
+        
+        // Execute any pending callbacks
         if (window.googleMapsCallbacks && window.googleMapsCallbacks.length) {
+          console.log('[Google Maps] Executing ' + window.googleMapsCallbacks.length + ' pending callbacks');
           window.googleMapsCallbacks.forEach(function(callback) {
-            callback();
+            try {
+              callback();
+            } catch (err) {
+              console.error('[Google Maps] Error in callback:', err);
+            }
           });
         }
       };
       
-      // Initialize the callbacks array
-      window.googleMapsCallbacks = [];
-      
-      // Set a flag to track if Google Maps API is loaded
-      window.googleMapsLoaded = false;
-    </script>
-    
-    <!-- Direct Google Maps API integration with hardcoded key for immediate fix -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBai5EagIUmMY8Vaugzkc4obqydImC-fjA&libraries=places&callback=initGoogleMapsAPI" async defer></script>
-    
-    <!-- Additional script to ensure Maps API is properly initialized -->
-    <script>
-      (function() {
-        console.log('Initializing Google Maps API loading');
+      // Error handler for the Google Maps API script
+      function handleGoogleMapsError(error) {
+        console.error('[Google Maps] Script loading error:', error);
+        window.googleApiError = error.message || 'Failed to load Google Maps API';
+        window.googleMapsConfig.status = 'ERROR';
         
-        // Set a flag to track if API is loaded
-        window.googleMapsLoaded = false;
-        
-        // Make sure initGoogleMapsAPI is defined
-        window.initGoogleMapsAPI = function() {
-          console.log('Google Maps API callback function called!');
-          window.googleMapsLoaded = true;
+        // If we haven't exceeded max retries, try again
+        if (window.googleMapsConfig.retryCount < window.googleMapsConfig.maxRetries) {
+          window.googleMapsConfig.retryCount++;
+          console.log('[Google Maps] Retrying API load, attempt ' + window.googleMapsConfig.retryCount);
           
-          // This will trigger any pending callbacks
-          if (window.googleMapsCallbacks && window.googleMapsCallbacks.length) {
-            console.log('Executing ' + window.googleMapsCallbacks.length + ' pending callbacks');
-            window.googleMapsCallbacks.forEach(function(callback) {
-              try {
-                callback();
-              } catch (err) {
-                console.error('Error in Maps callback:', err);
-              }
-            });
-          }
-        };
+          // Wait before retrying
+          setTimeout(function() {
+            loadGoogleMapsAPI();
+          }, window.googleMapsConfig.retryDelay);
+        }
+      }
+      
+      // Fetch API key from Netlify function and load Google Maps API
+      function loadGoogleMapsAPI() {
+        console.log('[Google Maps] Initializing API load process');
+        window.googleMapsConfig.status = 'LOADING';
+        window.googleMapsConfig.loadTimestamp = new Date().getTime();
         
-        // Initialize the callbacks array
-        window.googleMapsCallbacks = window.googleMapsCallbacks || [];
-        
-        // Check if API is already loaded
+        // If API is already loaded, don't load it again
         if (window.google && window.google.maps && window.google.maps.places) {
-          console.log('Google Maps API already loaded, initializing');
-          window.googleMapsLoaded = true;
+          console.log('[Google Maps] API already available in window');
           window.initGoogleMapsAPI();
+          return;
         }
         
-        // Set a backup timer to check if API loaded
-        setTimeout(function checkGoogleMapsLoaded() {
+        // Use Netlify function to get API key securely
+        console.log('[Google Maps] Fetching API key from Netlify function');
+        fetch('/.netlify/functions/getGoogleApiKey?_t=' + new Date().getTime())
+          .then(function(response) {
+            if (!response.ok) {
+              throw new Error('Failed to fetch API key: ' + response.status);
+            }
+            return response.json();
+          })
+          .then(function(data) {
+            if (data && data.apiKey) {
+              console.log('[Google Maps] Successfully received API key, loading API');
+              
+              // Create script element
+              var script = document.createElement('script');
+              script.src = 'https://maps.googleapis.com/maps/api/js?key=' + 
+                          data.apiKey + 
+                          '&libraries=' + window.googleMapsConfig.libraries.join(',') + 
+                          '&v=' + window.googleMapsConfig.apiVersion + 
+                          '&callback=initGoogleMapsAPI';
+              script.async = true;
+              script.defer = true;
+              script.onerror = handleGoogleMapsError;
+              
+              // Insert script into document
+              document.head.appendChild(script);
+              console.log('[Google Maps] API script added to page');
+              
+              // Start monitoring the loading status
+              startLoadingMonitor();
+            } else {
+              console.error('[Google Maps] No API key returned from function');
+              window.googleApiError = 'Missing API key';
+              window.googleMapsConfig.status = 'ERROR';
+            }
+          })
+          .catch(function(error) {
+            console.error('[Google Maps] Error loading API:', error);
+            window.googleApiError = error.message;
+            window.googleMapsConfig.status = 'ERROR';
+            
+            // Retry if appropriate
+            if (window.googleMapsConfig.retryCount < window.googleMapsConfig.maxRetries) {
+              window.googleMapsConfig.retryCount++;
+              console.log('[Google Maps] Retrying API key fetch, attempt ' + window.googleMapsConfig.retryCount);
+              
+              setTimeout(function() {
+                loadGoogleMapsAPI();
+              }, window.googleMapsConfig.retryDelay);
+            }
+          });
+      }
+      
+      // Monitor Google Maps API loading status
+      function startLoadingMonitor() {
+        // Clear any existing interval
+        if (window.googleMapsConfig.checkInterval) {
+          clearInterval(window.googleMapsConfig.checkInterval);
+        }
+        
+        window.googleMapsConfig.checkInterval = setInterval(function() {
+          // Check if API is already loaded
           if (window.google && window.google.maps && window.google.maps.places) {
-            console.log('Google Maps API detected by timer check');
+            console.log('[Google Maps] API detected by monitor');
             if (!window.googleMapsLoaded) {
               window.googleMapsLoaded = true;
               window.initGoogleMapsAPI();
             }
-          } else {
-            console.log('Google Maps API not detected yet, retrying in 1s');
-            setTimeout(checkGoogleMapsLoaded, 1000);
+            clearInterval(window.googleMapsConfig.checkInterval);
+            return;
+          }
+          
+          // Check for timeout - 30 seconds
+          var elapsed = new Date().getTime() - window.googleMapsConfig.loadTimestamp;
+          if (elapsed > 30000 && window.googleMapsConfig.status === 'LOADING') {
+            console.error('[Google Maps] Loading timed out after 30 seconds');
+            window.googleApiError = 'API loading timed out';
+            window.googleMapsConfig.status = 'TIMEOUT';
+            clearInterval(window.googleMapsConfig.checkInterval);
+            
+            // Retry if appropriate
+            if (window.googleMapsConfig.retryCount < window.googleMapsConfig.maxRetries) {
+              window.googleMapsConfig.retryCount++;
+              console.log('[Google Maps] Retrying after timeout, attempt ' + window.googleMapsConfig.retryCount);
+              
+              setTimeout(function() {
+                loadGoogleMapsAPI();
+              }, window.googleMapsConfig.retryDelay);
+            }
           }
         }, 1000);
-      })();
+      }
+      
+      // Start loading the API
+      loadGoogleMapsAPI();
     </script>
   </head>
   <body>

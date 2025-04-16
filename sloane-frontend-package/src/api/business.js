@@ -88,40 +88,73 @@ const mockBusinessData = [
 // Function to fetch the Google Maps API key from the Netlify function
 const getGoogleApiKey = async () => {
   try {
-    console.log('Fetching Google API key from Netlify function...');
+    console.log('[Maps API] Fetching Google API key from Netlify function...');
     
-    // First try Netlify function endpoint
+    // Add cache-busting parameter to avoid cached responses
+    const timestamp = new Date().getTime();
+    const url = `/.netlify/functions/getGoogleApiKey?_t=${timestamp}`;
+    
+    // First try Netlify function endpoint with proper fetch options
     try {
-      const response = await fetch('/.netlify/functions/getGoogleApiKey');
+      console.log(`[Maps API] Making request to: ${url}`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10-second timeout
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        },
+        cache: 'no-store',
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      console.log(`[Maps API] Response status: ${response.status}`);
       
       if (response.ok) {
         const data = await response.json();
         if (data.apiKey) {
-          console.log('API key successfully received from Netlify function');
+          console.log('[Maps API] API key successfully received from Netlify function');
           return data.apiKey;
         } else {
-          console.warn('API key missing from Netlify function response');
+          console.warn('[Maps API] API key missing from Netlify function response:', data);
+          throw new Error('API key missing from Netlify function response');
         }
       } else {
-        console.error('Failed to fetch API key, status:', response.status);
+        console.error('[Maps API] Failed to fetch API key, status:', response.status);
         const text = await response.text();
-        console.error('Response:', text);
+        console.error('[Maps API] Response:', text);
+        throw new Error(`Failed to fetch API key: ${response.status} - ${text}`);
       }
     } catch (netlifyError) {
-      console.error('Error accessing Netlify function:', netlifyError);
+      // Check if this is an abort error (timeout)
+      if (netlifyError.name === 'AbortError') {
+        console.error('[Maps API] Request to Netlify function timed out');
+        throw new Error('Request to Netlify function timed out');
+      }
+      
+      console.error('[Maps API] Error accessing Netlify function:', netlifyError);
+      
+      // Try fallback options but bubble up the original error if all fallbacks fail
+      const originalError = netlifyError;
+      
+      // Try direct environment variable (for local development)
+      console.log('[Maps API] Trying to access API key from environment directly (for local development)');
+      if (process.env && process.env.REACT_APP_GOOGLE_MAPS_API_KEY) {
+        console.log('[Maps API] Found API key in REACT_APP_GOOGLE_MAPS_API_KEY environment variable');
+        return process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+      }
+      
+      // All fallbacks failed, throw the original error
+      throw originalError;
     }
-    
-    // If we got here, Netlify function failed, try direct environment variable (for local development)
-    console.log('Trying to access API key from environment directly (for local development)');
-    if (process.env && process.env.REACT_APP_GOOGLE_MAPS_API_KEY) {
-      console.log('Found API key in REACT_APP_GOOGLE_MAPS_API_KEY environment variable');
-      return process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
-    }
-    
-    console.error('No API key available from any source');
-    throw new Error('Failed to get Google Maps API key');
   } catch (error) {
-    console.error('Error fetching Google API key:', error);
+    console.error('[Maps API] Error fetching Google API key:', error);
     throw error;
   }
 };

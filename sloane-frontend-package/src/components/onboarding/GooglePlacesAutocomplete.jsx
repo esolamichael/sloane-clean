@@ -57,49 +57,114 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState(null);
 
-  // Just initialize Google Services - API is loaded from index.html
+  // Initialize Google Services - API is loaded from index.html
   useEffect(() => {
-    // Register a callback for when API loads (in case it hasn't loaded yet)
-    window.googleMapsCallbacks = window.googleMapsCallbacks || [];
-    window.googleMapsCallbacks.push(() => {
-      console.log('✅ API loaded callback triggered');
-      initializeGoogleServices();
-      setGoogleApiLoaded(true);
-      setUseGooglePlaces(true);
-    });
+    console.log('🔄 Initializing GooglePlacesAutocomplete component');
     
-    // If API is already loaded, initialize immediately
+    // Define the initialization function
+    const initAndActivate = () => {
+      console.log('✅ Initializing Google services from callback');
+      try {
+        initializeGoogleServices();
+        setGoogleApiLoaded(true);
+        setUseGooglePlaces(true);
+        setGoogleApiError(null);
+      } catch (err) {
+        console.error('❌ Error initializing Google services:', err);
+        setGoogleApiError(`Error initializing Google services: ${err.message}`);
+        setUseGooglePlaces(false);
+      }
+    };
+    
+    // Get the current API status from the window config
+    const checkApiStatus = () => {
+      if (window.googleMapsConfig && window.googleMapsConfig.status) {
+        return window.googleMapsConfig.status;
+      }
+      return null;
+    };
+    
+    // Register callback for API load event
+    window.googleMapsCallbacks = window.googleMapsCallbacks || [];
+    window.googleMapsCallbacks.push(initAndActivate);
+    
+    // Check if API is already loaded
     if (window.google && window.google.maps && window.google.maps.places) {
       console.log('✅ Google Maps API already available in window');
-      initializeGoogleServices();
-      setGoogleApiLoaded(true);
-      setUseGooglePlaces(true);
+      initAndActivate();
+      return; // Early return if already loaded
     } 
     // If googleMapsLoaded flag is true, also initialize
     else if (window.googleMapsLoaded) {
       console.log('✅ Google Maps API already loaded via global script');
-      initializeGoogleServices();
-      setGoogleApiLoaded(true);
-      setUseGooglePlaces(true);
+      initAndActivate();
+      return; // Early return if already loaded via flag
     }
-    else {
-      console.log('⏳ Waiting for Google Maps API to load from index.html script...');
-      // Set a timeout to check again in case the callbacks aren't working
-      const checkInterval = setInterval(() => {
-        if (window.google && window.google.maps && window.google.maps.places) {
-          console.log('✅ Google Maps API now available - detected by interval');
-          clearInterval(checkInterval);
-          initializeGoogleServices();
-          setGoogleApiLoaded(true);
-          setUseGooglePlaces(true);
+    
+    console.log('⏳ Waiting for Google Maps API to load...');
+    console.log('🔄 Current API status:', checkApiStatus());
+    
+    // Set up polling to check for API availability with better error handling
+    let attempts = 0;
+    const maxAttempts = 20; // 20 seconds maximum wait
+    
+    const checkInterval = setInterval(() => {
+      attempts++;
+      
+      // Log the current API status for debugging
+      if (attempts % 5 === 0) {
+        console.log(`🔄 API status check (${attempts}): ${checkApiStatus()}`);
+      }
+      
+      // Check if API is loaded
+      if (window.google && window.google.maps && window.google.maps.places) {
+        console.log(`✅ Google Maps API now available - detected on attempt ${attempts}`);
+        clearInterval(checkInterval);
+        initAndActivate();
+      } 
+      // Check for error flag set by script or ERROR status
+      else if (window.googleApiError || checkApiStatus() === 'ERROR') {
+        const errorMessage = window.googleApiError || 'API loading failed';
+        console.error('❌ Error reported by loader script:', errorMessage);
+        clearInterval(checkInterval);
+        setGoogleApiError(`Google Maps API error: ${errorMessage}`);
+        setUseGooglePlaces(false);
+      }
+      // Check for timeout status
+      else if (checkApiStatus() === 'TIMEOUT') {
+        console.error('❌ API loading timed out according to loader');
+        clearInterval(checkInterval);
+        setGoogleApiError('Google Maps API loading timed out');
+        setUseGooglePlaces(false);
+      }
+      // Give up after max attempts
+      else if (attempts >= maxAttempts) {
+        console.error('❌ Timed out waiting for Google Maps API to load');
+        clearInterval(checkInterval);
+        setGoogleApiError('Timed out waiting for Google Maps API to load');
+        setUseGooglePlaces(false);
+        
+        // Try to force reload the API
+        if (window.loadGoogleMapsAPI && typeof window.loadGoogleMapsAPI === 'function') {
+          console.log('🔄 Attempting to force reload the Google Maps API');
+          try {
+            window.loadGoogleMapsAPI();
+          } catch (err) {
+            console.error('❌ Error reloading Google Maps API:', err);
+          }
         }
-      }, 1000);
-      
-      // Clear interval after 10 seconds to avoid memory leaks
-      setTimeout(() => clearInterval(checkInterval), 10000);
-      
-      return () => clearInterval(checkInterval);
-    }
+      }
+      else {
+        if (attempts % 5 === 0) {
+          console.log(`⏳ Still waiting for Google Maps API (attempt ${attempts}/${maxAttempts})...`);
+        }
+      }
+    }, 1000);
+    
+    return () => {
+      console.log('🧹 Cleaning up GooglePlacesAutocomplete component');
+      clearInterval(checkInterval);
+    };
   }, []);
 
   // Initialize Google services when API is loaded
@@ -915,7 +980,15 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
     <Box sx={{ position: 'relative', width: '100%' }}>
       {googleApiError && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          {googleApiError} You can still search for and create businesses using our default database.
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            {googleApiError}
+          </Typography>
+          <Typography variant="body2">
+            This may be due to network issues or an incorrect API key. You can still search for and create businesses using our default database.
+            {googleApiError.includes('InvalidKeyMapError') && (
+              <strong> Please contact support to resolve the Google Maps API key issue.</strong>
+            )}
+          </Typography>
         </Alert>
       )}
       
