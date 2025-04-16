@@ -3,12 +3,17 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
+import logging
 from ...business.scrapers import WebsiteScraper, GBPScraper
 from ...repositories.business_repository import BusinessRepository
 from ...repositories.training_repository import TrainingRepository
 from ...business.analytics import CallAnalytics
 from ...call_management.call_handler import CallHandler
 from ..dependencies import get_current_business_id
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Create router
 router = APIRouter(
@@ -54,9 +59,26 @@ async def scrape_website(
     try:
         scraper = WebsiteScraper()
         result = await scraper.scrape_website(business_id, request.url)
+        
+        # Check for error in result
+        if "error" in result:
+            # Return a structured error response but with a 200 status code
+            return {
+                "success": False, 
+                "error": result.get("error"), 
+                "url": result.get("url", request.url)
+            }
+            
         return {"success": True, "data": result}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log the exception
+        logging.error(f"Error in website scraping endpoint: {str(e)}")
+        # Return structured error without raising an exception
+        return {
+            "success": False,
+            "error": str(e),
+            "url": request.url
+        }
 
 @router.post("/scrape-gbp", response_model=Dict[str, Any])
 async def scrape_gbp(
@@ -67,9 +89,29 @@ async def scrape_gbp(
     try:
         scraper = GBPScraper()
         result = await scraper.scrape_gbp(business_id, request.business_name, request.location)
+        
+        # Check for error in result
+        if "error" in result:
+            # Return a structured error response but with a 200 status code
+            # This allows the frontend to handle the error gracefully
+            return {
+                "success": False, 
+                "error": result.get("error"), 
+                "details": result.get("details", ""),
+                "business_name": result.get("business_name", request.business_name)
+            }
+        
+        # Return successful response with data
         return {"success": True, "data": result}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log the exception
+        logging.error(f"Error in GBP scraping endpoint: {str(e)}")
+        # Return structured error
+        return {
+            "success": False,
+            "error": str(e),
+            "business_name": request.business_name
+        }
 
 @router.get("/training-data", response_model=Dict[str, Any])
 async def get_training_data(

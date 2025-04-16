@@ -25,3 +25,4 @@ google-cloud-secret-manager==2.17.0
 # Utility
 email-validator==2.1.0
 python-multipart==0.0.6
+aiohttp==3.8.6

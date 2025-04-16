@@ -378,68 +378,159 @@ class GBPScraper:
         try:
             logger.info(f"Scraping GBP for: {business_name} in {location or 'any location'}")
             
-            # In a real implementation, you would:
-            # 1. Use the Google Places API with a proper API key
-            # 2. Or use a service like Bright Data, ScrapingBee, etc.
+            import os
+            import aiohttp
+            import urllib.parse
             
-            # For this example, we'll create a placeholder implementation
-            # that would need to be replaced with actual API calls
-            
-            # Simulate a search
-            search_query = f"{business_name} {location or ''}"
-            
-            # Placeholder for GBP data
-            gbp_data = {
-                "business_id": business_id,
-                "source": "gbp",
-                "name": business_name,
-                "formatted_address": "123 Business St, City, State 12345" if not location else f"123 Business St, {location}",
-                "phone": "(555) 123-4567",
-                "website": f"https://www.{business_name.lower().replace(' ', '')}.com",
-                "rating": 4.5,
-                "reviews_count": 42,
-                "categories": ["Service Business", "Local Business"],
-                "opening_hours": {
-                    "monday": "9:00 AM - 5:00 PM",
-                    "tuesday": "9:00 AM - 5:00 PM",
-                    "wednesday": "9:00 AM - 5:00 PM",
-                    "thursday": "9:00 AM - 5:00 PM",
-                    "friday": "9:00 AM - 5:00 PM",
-                    "saturday": "10:00 AM - 3:00 PM",
-                    "sunday": "Closed"
-                },
-                "reviews": [
-                    {
-                        "author": "John D.",
-                        "rating": 5,
-                        "text": "Great service, highly recommended!"
-                    },
-                    {
-                        "author": "Jane S.",
-                        "rating": 4,
-                        "text": "Good service, but slightly expensive."
-                    }
-                ],
-                "photos": [
-                    "https://placeholder.com/business1.jpg",
-                    "https://placeholder.com/business2.jpg"
-                ],
-                "attributes": {
-                    "has_wifi": True,
-                    "appointment_required": False
+            # Attempt to get the API key from environment variable
+            api_key = os.environ.get('GOOGLE_MAPS_API_KEY')
+            if not api_key:
+                # Fallback to potential other environment variables
+                api_key = os.environ.get('GOOGLE_PLACES_API_KEY') or os.environ.get('PLACES_API_KEY')
+                
+            if not api_key:
+                # If no API key found, return a specific error message to indicate this issue
+                logger.error("No Google Places API key found in environment variables")
+                return {
+                    "error": "Google Places API key not configured", 
+                    "details": "The server is missing the necessary API key to access Google's services.",
+                    "business_name": business_name
                 }
-            }
             
-            # Store in MongoDB through the repository
-            await self.business_repo.save_gbp_data(business_id, gbp_data)
+            # Format the query and location for search
+            search_query = urllib.parse.quote(f"{business_name}")
+            if location:
+                search_query += f"+{urllib.parse.quote(location)}"
             
-            # Also save relevant parts to the training repository
-            training_data = self._prepare_training_data(gbp_data)
-            await self.training_repo.save_training_data(business_id, training_data)
+            # Step 1: Use Places API text search to find the business
+            places_url = f"https://maps.googleapis.com/maps/api/place/textsearch/json?query={search_query}&key={api_key}"
             
-            logger.info(f"Successfully scraped GBP for business_id: {business_id}")
-            return gbp_data
-            
+            async with aiohttp.ClientSession() as session:
+                try:
+                    async with session.get(places_url, timeout=10) as response:
+                        places_data = await response.json()
+                        
+                        if places_data.get('status') != 'OK':
+                            logger.error(f"Places API error: {places_data.get('status')}")
+                            return {
+                                "error": f"Google Places API error: {places_data.get('status')}",
+                                "business_name": business_name
+                            }
+                        
+                        if not places_data.get('results'):
+                            logger.error(f"No results found for {business_name}")
+                            return {
+                                "error": f"No business found matching '{business_name}'", 
+                                "business_name": business_name
+                            }
+                        
+                        # Get the first (most relevant) result
+                        place = places_data['results'][0]
+                        place_id = place['place_id']
+                        
+                        # Step 2: Get detailed information using Place Details API
+                        details_url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields=name,formatted_address,formatted_phone_number,website,rating,user_ratings_total,types,opening_hours,review,photos,address_component&key={api_key}"
+                        
+                        async with session.get(details_url, timeout=10) as details_response:
+                            details_data = await details_response.json()
+                            
+                            if details_data.get('status') != 'OK':
+                                logger.error(f"Place Details API error: {details_data.get('status')}")
+                                return {
+                                    "error": f"Google Place Details API error: {details_data.get('status')}",
+                                    "business_name": business_name
+                                }
+                            
+                            result = details_data['result']
+                            
+                            # Extract and format business hours
+                            hours = {}
+                            if 'opening_hours' in result and 'periods' in result['opening_hours']:
+                                days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+                                for period in result['opening_hours']['periods']:
+                                    day_index = period.get('open', {}).get('day', 0)
+                                    if day_index is not None and 0 <= day_index < len(days):
+                                        day = days[day_index]
+                                        
+                                        # Get opening and closing times
+                                        open_time = period.get('open', {}).get('time', '')
+                                        close_time = period.get('close', {}).get('time', '')
+                                        
+                                        # Format times for readability
+                                        if open_time and len(open_time) == 4:
+                                            open_time = f"{open_time[:2]}:{open_time[2:]} AM" if int(open_time[:2]) < 12 else f"{int(open_time[:2]) - 12 if int(open_time[:2]) > 12 else 12}:{open_time[2:]} PM"
+                                        
+                                        if close_time and len(close_time) == 4:
+                                            close_time = f"{close_time[:2]}:{close_time[2:]} AM" if int(close_time[:2]) < 12 else f"{int(close_time[:2]) - 12 if int(close_time[:2]) > 12 else 12}:{close_time[2:]} PM"
+                                        
+                                        hours[day] = {
+                                            "isOpen": True,
+                                            "openTime": open_time,
+                                            "closeTime": close_time
+                                        }
+                            
+                            # Format photos - create URLs
+                            photo_urls = []
+                            if 'photos' in result:
+                                for photo in result['photos'][:5]:  # Limit to 5 photos
+                                    if 'photo_reference' in photo:
+                                        photo_url = f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference={photo['photo_reference']}&key={api_key}"
+                                        photo_urls.append(photo_url)
+                            
+                            # Extract reviews
+                            reviews = []
+                            if 'reviews' in result:
+                                for review in result['reviews'][:3]:  # Limit to 3 reviews
+                                    reviews.append({
+                                        "author": review.get('author_name', 'Anonymous'),
+                                        "rating": review.get('rating', 0),
+                                        "text": review.get('text', '')
+                                    })
+                            
+                            # Extract services from types 
+                            services = []
+                            types = result.get('types', [])
+                            for type_name in types:
+                                # Convert type to a readable service name
+                                service_name = type_name.replace('_', ' ').title()
+                                services.append({
+                                    "name": service_name,
+                                    "description": f"Service offered by {result.get('name', business_name)}",
+                                    "price": "Contact for pricing"
+                                })
+                            
+                            # Build structured business data
+                            gbp_data = {
+                                "business_id": business_id,
+                                "source": "gbp",
+                                "name": result.get('name', business_name),
+                                "formatted_address": result.get('formatted_address', ''),
+                                "phone": result.get('formatted_phone_number', ''),
+                                "website": result.get('website', ''),
+                                "rating": result.get('rating', 0),
+                                "reviews_count": result.get('user_ratings_total', 0),
+                                "categories": [t.replace('_', ' ').capitalize() for t in result.get('types', [])],
+                                "opening_hours": hours,
+                                "reviews": reviews,
+                                "photos": photo_urls,
+                                "services": services
+                            }
+                            
+                            # Store in MongoDB through the repository
+                            await self.business_repo.save_gbp_data(business_id, gbp_data)
+                            
+                            # Also save relevant parts to the training repository
+                            training_data = self._prepare_training_data(gbp_data)
+                            await self.training_repo.save_training_data(business_id, training_data)
+                            
+                            logger.info(f"Successfully scraped GBP for business_id: {business_id}")
+                            return gbp_data
+                except aiohttp.ClientError as e:
+                    logger.error(f"Network error connecting to Google Places API: {str(e)}")
+                    return {
+                        "error": f"Network error: {str(e)}",
+                        "business_name": business_name
+                    }
         except Exception as e:
             logger.error(f"Error scraping GBP for {business_name}: {str(e)}")
             return {"error": str(e), "business_name": business_name}
