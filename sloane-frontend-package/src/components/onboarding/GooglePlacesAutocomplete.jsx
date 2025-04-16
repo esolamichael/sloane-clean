@@ -84,6 +84,21 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
     }
     else {
       console.log('⏳ Waiting for Google Maps API to load from index.html script...');
+      // Set a timeout to check again in case the callbacks aren't working
+      const checkInterval = setInterval(() => {
+        if (window.google && window.google.maps && window.google.maps.places) {
+          console.log('✅ Google Maps API now available - detected by interval');
+          clearInterval(checkInterval);
+          initializeGoogleServices();
+          setGoogleApiLoaded(true);
+          setUseGooglePlaces(true);
+        }
+      }, 1000);
+      
+      // Clear interval after 10 seconds to avoid memory leaks
+      setTimeout(() => clearInterval(checkInterval), 10000);
+      
+      return () => clearInterval(checkInterval);
     }
   }, []);
 
@@ -243,6 +258,9 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
         // Add session token if available
         if (sessionToken.current) {
           request.sessionToken = sessionToken.current;
+          console.log('✅ Added session token to request');
+        } else {
+          console.warn('⚠️ No session token available');
         }
         
         // Add location bias if user location is available
@@ -251,24 +269,36 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
             center: userLocation,
             radius: 50000 // 50km radius
           };
+          console.log('📍 Added location bias:', userLocation);
+        } else {
+          console.warn('⚠️ No user location available for location bias');
         }
+        
+        console.log('📤 Sending Places API request:', request);
         
         // Get predictions
         autocompleteService.current.getPlacePredictions(
           request,
           (predictions, status) => {
+            console.log('📥 Places API response status:', status);
+            
             if (status !== window.google.maps.places.PlacesServiceStatus.OK || !predictions) {
-              console.warn('Places API returned status:', status);
+              console.warn('❌ Places API returned error status:', status);
               resolve([]);
               return;
             }
             
-            console.log(`Received ${predictions.length} predictions from Places API`);
+            console.log(`✅ Received ${predictions.length} predictions from Places API:`, predictions);
             resolve(predictions);
           }
         );
       } catch (error) {
-        console.error('Error in getPlacePredictions:', error);
+        console.error('❌ Error in getPlacePredictions:', error);
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack,
+          where: error.toString()
+        });
         resolve([]);
       }
     });
@@ -382,6 +412,13 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
     const value = e.target.value;
     setInputValue(value);
     
+    console.log('Input changed:', value);
+    console.log('Current state:', { 
+      useGooglePlaces, 
+      googleApiLoaded, 
+      autocompleteService: !!autocompleteService.current
+    });
+    
     if (value.length >= 2) {
       setLoading(true);
       setError(null);
@@ -391,7 +428,10 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
         
         if (useGooglePlaces && googleApiLoaded) {
           // Use Google Places API
+          console.log('🔍 Using Google Places API for predictions');
           const predictions = await getGooglePlacesPredictions(value);
+          console.log('✅ Got predictions:', predictions);
+          
           results = predictions.map(prediction => ({
             id: prediction.place_id,
             name: prediction.structured_formatting.main_text,
@@ -401,18 +441,21 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
           }));
         } else {
           // Use fallback data
+          console.log('⚠️ Using fallback data - Google Places API not available');
           results = filterBusinesses(value);
         }
         
+        console.log('Setting predictions:', results.length);
         setPredictions(results);
         
         if (results.length === 0 && value.length > 2) {
+          console.log('No matches found');
           setError(
             `No matches found for "${value}". Try a different search term or create a custom business below.`
           );
         }
       } catch (error) {
-        console.error('Error getting predictions:', error);
+        console.error('❌ Error getting predictions:', error);
         setError('Error searching for businesses. Using fallback data.');
         
         // Fallback to sample data if Google Places fails

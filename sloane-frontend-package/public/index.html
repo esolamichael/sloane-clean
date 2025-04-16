@@ -50,18 +50,22 @@
         console.log('Initializing Google Maps API loading');
         var isGoogleMapsLoaded = false;
         
+        // Hardcoded API key for immediate fix
+        var apiKey = 'AIzaSyBai5EagIUmMY8Vaugzkc4obqydImC-fjA';
+        loadGoogleMapsScript(apiKey);
+        
         // For direct testing purpose - this variable will be replaced during build
         // with the actual environment variable if available
         var envApiKey = '%REACT_APP_GOOGLE_MAPS_API_KEY%';
         
-        // If we have an environment variable and it's not the placeholder
+        // If we have an environment variable and it's not the placeholder, use that instead
         if (envApiKey && !envApiKey.includes('REACT_APP_')) {
           console.log('Using API key from environment variable');
           loadGoogleMapsScript(envApiKey);
           return;
         }
         
-        // Try to get the API key from the Netlify function
+        // Try to get the API key from the Netlify function as a backup
         fetch('/.netlify/functions/getGoogleApiKey')
           .then(function(response) { 
             if (!response.ok) {
