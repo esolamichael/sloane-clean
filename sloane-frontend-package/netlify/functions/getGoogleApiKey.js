@@ -19,10 +19,23 @@ exports.handler = async function(event, context) {
 
   try {
     // No API keys in code - only environment variables
-    // Search for API key in multiple possible environment variable names
+    // Special case - prioritize the exact environment variable name that's already set
+    if (process.env.REACT_APP_GOOGLE_MAPS_API_KEY) {
+      console.log('Found API key in REACT_APP_GOOGLE_MAPS_API_KEY - using this one');
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ 
+          apiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
+          source: 'REACT_APP_GOOGLE_MAPS_API_KEY',
+          timestamp: new Date().toISOString() 
+        })
+      };
+    }
+    
+    // If we didn't find the specific key we're looking for, try other names
     const possibleEnvVars = [
       'GOOGLE_MAPS_API_KEY',
-      'REACT_APP_GOOGLE_MAPS_API_KEY',
       'GOOGLE_PLACES_API_KEY',
       'MAPS_API_KEY',
       'PLACES_API_KEY',

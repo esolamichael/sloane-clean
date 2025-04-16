@@ -114,7 +114,8 @@
                           data.apiKey + 
                           '&libraries=' + window.googleMapsConfig.libraries.join(',') + 
                           '&v=' + window.googleMapsConfig.apiVersion + 
-                          '&callback=initGoogleMapsAPI';
+                          '&callback=initGoogleMapsAPI' +
+                          '&loading=async'; // Add loading=async parameter to fix performance warning
               script.async = true;
               script.defer = true;
               script.onerror = handleGoogleMapsError;
