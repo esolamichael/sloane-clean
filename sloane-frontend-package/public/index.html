@@ -40,64 +40,58 @@
       window.googleMapsLoaded = false;
     </script>
     
-    <!-- Google Maps API is loaded dynamically with key from environment variables -->
-    <!-- The key is never hardcoded here for security -->
-    <script id="google-maps-script" async defer></script>
+    <!-- Direct Google Maps API integration with hardcoded key for immediate fix -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBai5EagIUmMY8Vaugzkc4obqydImC-fjA&libraries=places&callback=initGoogleMapsAPI" async defer></script>
     
-    <!-- Script to dynamically set the Google Maps API key -->
+    <!-- Additional script to ensure Maps API is properly initialized -->
     <script>
       (function() {
         console.log('Initializing Google Maps API loading');
-        var isGoogleMapsLoaded = false;
         
-        // Hardcoded API key for immediate fix
-        var apiKey = 'AIzaSyBai5EagIUmMY8Vaugzkc4obqydImC-fjA';
-        loadGoogleMapsScript(apiKey);
+        // Set a flag to track if API is loaded
+        window.googleMapsLoaded = false;
         
-        // For direct testing purpose - this variable will be replaced during build
-        // with the actual environment variable if available
-        var envApiKey = '%REACT_APP_GOOGLE_MAPS_API_KEY%';
-        
-        // If we have an environment variable and it's not the placeholder, use that instead
-        if (envApiKey && !envApiKey.includes('REACT_APP_')) {
-          console.log('Using API key from environment variable');
-          loadGoogleMapsScript(envApiKey);
-          return;
-        }
-        
-        // Try to get the API key from the Netlify function as a backup
-        fetch('/.netlify/functions/getGoogleApiKey')
-          .then(function(response) { 
-            if (!response.ok) {
-              throw new Error('Failed to fetch API key: ' + response.status);
-            }
-            return response.json(); 
-          })
-          .then(function(data) {
-            if (data.apiKey) {
-              console.log('Successfully received API key from function');
-              loadGoogleMapsScript(data.apiKey);
-            } else {
-              console.error('No API key returned from function');
-              // Just log the error but don't block the page
-              console.error('Google Maps functionality may not work properly');
-            }
-          })
-          .catch(function(error) {
-            console.error('Error fetching API key:', error);
-            // Just log the error but don't block the page
-            console.error('Google Maps functionality may not work properly');
-          });
-        
-        function loadGoogleMapsScript(key) {
-          // Prevent loading multiple times
-          if (isGoogleMapsLoaded) return;
-          isGoogleMapsLoaded = true;
+        // Make sure initGoogleMapsAPI is defined
+        window.initGoogleMapsAPI = function() {
+          console.log('Google Maps API callback function called!');
+          window.googleMapsLoaded = true;
           
-          var script = document.getElementById('google-maps-script');
-          script.src = 'https://maps.googleapis.com/maps/api/js?key=' + key + '&libraries=places&callback=initGoogleMapsAPI';
-          console.log('Google Maps script tag updated with key');
+          // This will trigger any pending callbacks
+          if (window.googleMapsCallbacks && window.googleMapsCallbacks.length) {
+            console.log('Executing ' + window.googleMapsCallbacks.length + ' pending callbacks');
+            window.googleMapsCallbacks.forEach(function(callback) {
+              try {
+                callback();
+              } catch (err) {
+                console.error('Error in Maps callback:', err);
+              }
+            });
+          }
+        };
+        
+        // Initialize the callbacks array
+        window.googleMapsCallbacks = window.googleMapsCallbacks || [];
+        
+        // Check if API is already loaded
+        if (window.google && window.google.maps && window.google.maps.places) {
+          console.log('Google Maps API already loaded, initializing');
+          window.googleMapsLoaded = true;
+          window.initGoogleMapsAPI();
         }
+        
+        // Set a backup timer to check if API loaded
+        setTimeout(function checkGoogleMapsLoaded() {
+          if (window.google && window.google.maps && window.google.maps.places) {
+            console.log('Google Maps API detected by timer check');
+            if (!window.googleMapsLoaded) {
+              window.googleMapsLoaded = true;
+              window.initGoogleMapsAPI();
+            }
+          } else {
+            console.log('Google Maps API not detected yet, retrying in 1s');
+            setTimeout(checkGoogleMapsLoaded, 1000);
+          }
+        }, 1000);
       })();
     </script>
   </head>
