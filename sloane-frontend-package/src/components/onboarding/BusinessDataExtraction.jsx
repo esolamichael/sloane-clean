@@ -225,34 +225,27 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
           
           console.log('Attempting to scrape Google Business Profile for:', url);
           
-          // We won't use try/catch since businessApi.scrapeGBP now handles errors and returns mock data
-          result = await businessApi.scrapeGBP(url);
-          
-          // Check if the API call was successful
-          if (result.success === false) {
-            console.log('API scraping failed, using fallback mock data');
-            // The API call failed but returned a minimal data structure
-            // Let's enhance it with mock data
-            const mockResult = await mockDataExtraction(url, source, null);
-            extractedBusiness = {
-              ...result.data,
-              ...mockResult.business
-            };
-          } else {
+          try {
+            // Make the API call and let it throw an error if it fails
+            result = await businessApi.scrapeGBP(url);
+            
             // The API call succeeded
             extractedBusiness = result.data;
             console.log('Successfully scraped GBP data:', extractedBusiness);
             
-            // For production use, ensure we have proper data structure for the onboarding flow
+            // Format conversion from API response to expected structure
             if (!extractedBusiness.hours && extractedBusiness.opening_hours) {
               // Convert opening_hours format to the format expected by the onboarding flow
               extractedBusiness.hours = {};
               Object.entries(extractedBusiness.opening_hours || {}).forEach(([day, hours]) => {
-                extractedBusiness.hours[day] = { 
-                  isOpen: hours !== 'Closed', 
-                  openTime: hours.split(' - ')[0] || '', 
-                  closeTime: hours.split(' - ')[1] || '' 
-                };
+                if (typeof hours === 'string') {
+                  const parts = hours.split(' - ');
+                  extractedBusiness.hours[day] = { 
+                    isOpen: hours !== 'Closed', 
+                    openTime: parts[0] || '', 
+                    closeTime: parts[1] || '' 
+                  };
+                }
               });
             }
             
@@ -265,22 +258,17 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
               }));
             }
             
-            // If no FAQs, create some generic ones
-            if (!extractedBusiness.faqs && !extractedBusiness.faq) {
-              extractedBusiness.faqs = [
-                { 
-                  question: `What services does ${extractedBusiness.name} offer?`, 
-                  answer: 'We offer a range of professional services. Please contact us for details.'
-                },
-                {
-                  question: 'What are your business hours?',
-                  answer: 'Our standard hours are Monday to Friday, 9:00 AM to 5:00 PM. Please check our website for holiday schedules.'
-                }
-              ];
-            } else if (extractedBusiness.faq && !extractedBusiness.faqs) {
-              // If faq exists but not faqs, copy it over
+            // Map FAQs if needed
+            if (extractedBusiness.faq && !extractedBusiness.faqs) {
               extractedBusiness.faqs = extractedBusiness.faq;
             }
+          } catch (error) {
+            console.error('Error scraping Google Business Profile:', error);
+            // Fall back to mock data
+            const mockResult = await mockDataExtraction(url, source, null);
+            extractedBusiness = mockResult.business;
+            
+            setError('Could not connect to the API server. Using sample data instead.');
           }
           
           setCompletedSteps(prev => ({
@@ -294,78 +282,44 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
           
           console.log('Attempting to scrape website:', url);
           
-          // We won't use try/catch since businessApi.scrapeWebsite now handles errors and returns mock data
-          result = await businessApi.scrapeWebsite(url);
-          
-          // Check if the API call was successful
-          if (result.success === false) {
-            console.log('API scraping failed, using fallback mock data');
-            // The API call failed but returned a minimal data structure
-            // Let's enhance it with mock data
-            const mockResult = await mockDataExtraction(url, source, null);
-            extractedBusiness = {
-              ...result.data,
-              ...mockResult.business
-            };
-          } else {
+          try {
+            // Make the API call and let it throw an error if it fails
+            result = await businessApi.scrapeWebsite(url);
+            
             // The API call succeeded
             extractedBusiness = result.data;
             console.log('Successfully scraped website data:', extractedBusiness);
             
-            // For production use, ensure we have proper data structure for the onboarding flow
-            // Convert hours format if necessary
-            if (!extractedBusiness.hours && typeof extractedBusiness.hours !== 'object') {
-              // Create default hours
-              extractedBusiness.hours = {
-                monday: { isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM' },
-                tuesday: { isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM' },
-                wednesday: { isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM' },
-                thursday: { isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM' },
-                friday: { isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM' },
-                saturday: { isOpen: false, openTime: '', closeTime: '' },
-                sunday: { isOpen: false, openTime: '', closeTime: '' }
-              };
-            }
-            
-            // If services array is missing or empty, create default services
-            if (!extractedBusiness.services || !Array.isArray(extractedBusiness.services) || extractedBusiness.services.length === 0) {
-              extractedBusiness.services = [
-                { name: 'Service 1', description: 'Description of service 1', price: 'Contact us' },
-                { name: 'Service 2', description: 'Description of service 2', price: 'Contact us' }
-              ];
-            }
-            
-            // If contact_info is missing, create default
-            if (!extractedBusiness.contact_info) {
-              // Create default contact info
-              const domain = extractedBusiness.website ? 
-                extractedBusiness.website.replace(/^https?:\/\/(www\.)?/, '').split('/')[0] : 
-                'example.com';
-                
-              extractedBusiness.contact_info = {
-                email: [`info@${domain}`],
-                phone: ['(555) 123-4567'],
-                address: '123 Main Street, Anytown, USA'
-              };
-            }
-            
-            // If no FAQs, create some generic ones
-            if ((!extractedBusiness.faqs || !Array.isArray(extractedBusiness.faqs) || extractedBusiness.faqs.length === 0) && 
-                (!extractedBusiness.faq || !Array.isArray(extractedBusiness.faq) || extractedBusiness.faq.length === 0)) {
-              extractedBusiness.faqs = [
-                { 
-                  question: `What services does ${extractedBusiness.name || 'your business'} offer?`, 
-                  answer: 'We offer a range of professional services. Please contact us for details.'
-                },
-                {
-                  question: 'What are your business hours?',
-                  answer: 'Our standard hours are Monday to Friday, 9:00 AM to 5:00 PM. Please check our website for holiday schedules.'
+            // Format conversion from API response to expected structure
+            // Convert hours format if needed
+            if (extractedBusiness.hours && typeof extractedBusiness.hours === 'object' && !extractedBusiness.hours.monday) {
+              // Convert from string format to object format expected by the frontend
+              const formattedHours = {};
+              Object.entries(extractedBusiness.hours).forEach(([day, hours]) => {
+                if (typeof hours === 'string') {
+                  const parts = hours.split(' - ');
+                  formattedHours[day] = { 
+                    isOpen: hours !== 'Closed', 
+                    openTime: parts[0] || '', 
+                    closeTime: parts[1] || '' 
+                  };
                 }
-              ];
-            } else if (extractedBusiness.faq && !extractedBusiness.faqs) {
-              // If faq exists but not faqs, copy it over
+              });
+              extractedBusiness.hours = formattedHours;
+            }
+            
+            // Map FAQs if needed
+            if (extractedBusiness.faq && !extractedBusiness.faqs) {
               extractedBusiness.faqs = extractedBusiness.faq;
             }
+            
+          } catch (error) {
+            console.error('Error scraping website:', error);
+            // Fall back to mock data
+            const mockResult = await mockDataExtraction(url, source, null);
+            extractedBusiness = mockResult.business;
+            
+            setError('Could not connect to the API server. Using sample data instead.');
           }
           
           setCompletedSteps(prev => ({

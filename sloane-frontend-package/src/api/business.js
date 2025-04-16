@@ -168,113 +168,34 @@ const businessApi = {
       // Log the actual endpoint we're hitting
       console.log(`Endpoint: ${api.defaults.baseURL}/business/scrape-website`);
       
-      // Since we may be having CORS issues, just simulate a successful API call in production
-      // In a real implementation, we would fix the CORS issues or use a proper proxy
-      if (process.env.NODE_ENV === 'production') {
-        console.log('Using mock data for production');
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Create a realistic business name from the URL
-        const domain = url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
-        const parts = domain.split('.');
-        const name = parts[0]
-          .split(/[^a-zA-Z0-9]+/)
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ');
-          
-        return {
-          success: true,
-          data: {
-            name: name,
-            website: url,
-            source: 'website',
-            domain: domain,
-            title: name,
-            description: `${name} - Professional services`,
-            services: [
-              { name: 'Service 1', description: 'Description of service 1', price: '$99' },
-              { name: 'Service 2', description: 'Description of service 2', price: '$149' }
-            ],
-            contact_info: {
-              email: [`info@${domain}`],
-              phone: ['(555) 123-4567'],
-              address: '123 Main Street, San Francisco, CA 94105'
-            },
-            hours: {
-              monday: '9:00 AM - 5:00 PM',
-              tuesday: '9:00 AM - 5:00 PM',
-              wednesday: '9:00 AM - 5:00 PM',
-              thursday: '9:00 AM - 5:00 PM',
-              friday: '9:00 AM - 5:00 PM',
-              saturday: 'Closed',
-              sunday: 'Closed'
-            },
-            faq: [
-              { question: 'What services do you offer?', answer: 'We offer a variety of professional services to meet your needs.' },
-              { question: 'What are your hours?', answer: 'We are open Monday through Friday, 9:00 AM to 5:00 PM.' }
-            ],
-            about: `${name} is a professional service provider dedicated to excellence.`
-          }
-        };
-      }
+      // Add business_id header for authorization
+      const headers = {
+        'X-Business-ID': 'test_business_id'
+      };
       
-      // Normal API call for development
-      const response = await api.post('/business/scrape-website', { url });
-      console.log('Scrape website response:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error("Error scraping website:", error);
-      console.error("Error details:", {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-        endpoint: api.defaults.baseURL + '/business/scrape-website'
+      // Use direct fetch API to avoid potential axios issues
+      const response = await fetch(`${api.defaults.baseURL}/business/scrape-website`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers
+        },
+        body: JSON.stringify({ url }),
+        mode: 'cors',
+        credentials: 'omit'
       });
       
-      // Create a realistic business name from the URL
-      const domain = url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
-      const parts = domain.split('.');
-      const name = parts[0]
-        .split(/[^a-zA-Z0-9]+/)
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-        
-      // Instead of throwing, return a mock result with more realistic data
-      return {
-        success: true,
-        data: {
-          name: name,
-          website: url,
-          source: 'website',
-          domain: domain,
-          title: name,
-          description: `${name} - Professional services`,
-          services: [
-            { name: 'Service 1', description: 'Description of service 1', price: '$99' },
-            { name: 'Service 2', description: 'Description of service 2', price: '$149' }
-          ],
-          contact_info: {
-            email: [`info@${domain}`],
-            phone: ['(555) 123-4567'],
-            address: '123 Main Street, San Francisco, CA 94105'
-          },
-          hours: {
-            monday: '9:00 AM - 5:00 PM',
-            tuesday: '9:00 AM - 5:00 PM',
-            wednesday: '9:00 AM - 5:00 PM',
-            thursday: '9:00 AM - 5:00 PM',
-            friday: '9:00 AM - 5:00 PM',
-            saturday: 'Closed',
-            sunday: 'Closed'
-          },
-          faq: [
-            { question: 'What services do you offer?', answer: 'We offer a variety of professional services to meet your needs.' },
-            { question: 'What are your hours?', answer: 'We are open Monday through Friday, 9:00 AM to 5:00 PM.' }
-          ],
-          about: `${name} is a professional service provider dedicated to excellence.`
-        }
-      };
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Scrape website response:', data);
+      return data;
+    } catch (error) {
+      console.error("Error scraping website:", error);
+      // Throw error to let the component handle it
+      throw error;
     }
   },
   
@@ -285,90 +206,37 @@ const businessApi = {
       // Log the actual endpoint we're hitting
       console.log(`Endpoint: ${api.defaults.baseURL}/business/scrape-gbp`);
       
-      // Since we may be having CORS issues, just simulate a successful API call in production
-      // In a real implementation, we would fix the CORS issues or use a proper proxy
-      if (process.env.NODE_ENV === 'production') {
-        console.log('Using mock data for production');
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        return {
-          success: true,
-          data: {
-            name: businessName,
-            formatted_address: location ? `123 Main Street, ${location}` : '123 Main Street, San Francisco, CA 94105',
-            phone: '(555) 123-4567',
-            website: `https://www.${businessName.toLowerCase().replace(/\s+/g, '')}.com`,
-            rating: 4.7,
-            reviews_count: 28,
-            categories: ['Professional Services', 'Local Business'],
-            opening_hours: {
-              monday: '9:00 AM - 5:00 PM',
-              tuesday: '9:00 AM - 5:00 PM',
-              wednesday: '9:00 AM - 5:00 PM',
-              thursday: '9:00 AM - 5:00 PM',
-              friday: '9:00 AM - 5:00 PM',
-              saturday: 'Closed',
-              sunday: 'Closed'
-            },
-            reviews: [
-              { author: 'John D.', rating: 5, text: 'Great service, highly recommended!' },
-              { author: 'Jane S.', rating: 4, text: 'Good experience overall.' }
-            ],
-            attributes: {
-              has_wifi: true,
-              appointment_required: false
-            }
-          }
-        };
+      // Add business_id header for authorization
+      const headers = {
+        'X-Business-ID': 'test_business_id'
+      };
+      
+      // Use direct fetch API to avoid potential axios issues
+      const response = await fetch(`${api.defaults.baseURL}/business/scrape-gbp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers
+        },
+        body: JSON.stringify({ 
+          business_name: businessName, 
+          location 
+        }),
+        mode: 'cors',
+        credentials: 'omit'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
       }
       
-      // Normal API call for development
-      const response = await api.post('/business/scrape-gbp', { 
-        business_name: businessName, 
-        location 
-      });
-      console.log('Scrape GBP response:', response.data);
-      return response.data;
+      const data = await response.json();
+      console.log('Scrape GBP response:', data);
+      return data;
     } catch (error) {
       console.error("Error scraping Google Business Profile:", error);
-      console.error("Error details:", {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-        endpoint: api.defaults.baseURL + '/business/scrape-gbp'
-      });
-      
-      // Instead of throwing, return a mock result with more realistic data
-      return {
-        success: true,
-        data: {
-          name: businessName,
-          formatted_address: location ? `123 Main Street, ${location}` : '123 Main Street, San Francisco, CA 94105',
-          phone: '(555) 123-4567',
-          website: `https://www.${businessName.toLowerCase().replace(/\s+/g, '')}.com`,
-          rating: 4.7,
-          reviews_count: 28,
-          categories: ['Professional Services', 'Local Business'],
-          opening_hours: {
-            monday: '9:00 AM - 5:00 PM',
-            tuesday: '9:00 AM - 5:00 PM',
-            wednesday: '9:00 AM - 5:00 PM',
-            thursday: '9:00 AM - 5:00 PM',
-            friday: '9:00 AM - 5:00 PM',
-            saturday: 'Closed',
-            sunday: 'Closed'
-          },
-          reviews: [
-            { author: 'John D.', rating: 5, text: 'Great service, highly recommended!' },
-            { author: 'Jane S.', rating: 4, text: 'Good experience overall.' }
-          ],
-          attributes: {
-            has_wifi: true,
-            appointment_required: false
-          }
-        }
-      };
+      // Throw error to let the component handle it
+      throw error;
     }
   },
   
