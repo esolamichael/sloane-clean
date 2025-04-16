@@ -423,12 +423,38 @@ class GBPScraper:
                         secret_name = "GOOGLE_MAPS_API_KEY"
                         secret_path = f"projects/{project_id}/secrets/{secret_name}/versions/latest"
                         
+                        logger.info(f"Attempting to access secret: {secret_path}")
+                        
                         # Get the secret value
                         response = client.access_secret_version(request={"name": secret_path})
                         api_key = response.payload.data.decode("UTF-8")
-                        logger.info(f"Successfully retrieved API key from Secret Manager")
+                        
+                        # Log success but not the actual key
+                        key_length = len(api_key) if api_key else 0
+                        logger.info(f"Successfully retrieved API key from Secret Manager. Key length: {key_length}")
+                        logger.info(f"API key first few chars: {api_key[:3]}*** last few chars: ***{api_key[-3:]}")
                 except Exception as e:
                     logger.error(f"Error accessing Secret Manager: {str(e)}")
+                    logger.exception("Detailed Secret Manager access error:")
+                    
+                    # Log more details about the project and environment
+                    logger.error(f"Project ID attempt: {project_id}")
+                    logger.error(f"USE_SECRET_MANAGER env var: {os.environ.get('USE_SECRET_MANAGER')}")
+                    
+                    # Check if secret exists
+                    try:
+                        # List available secrets
+                        available_secrets = []
+                        if project_id:
+                            parent = f"projects/{project_id}"
+                            sm_client = secretmanager.SecretManagerServiceClient()
+                            for secret in sm_client.list_secrets(request={"parent": parent}):
+                                available_secrets.append(secret.name)
+                            logger.info(f"Available secrets: {available_secrets}")
+                        else:
+                            logger.error("Cannot list secrets - no project ID available")
+                    except Exception as list_err:
+                        logger.error(f"Error listing secrets: {str(list_err)}")
             
             # Fall back to environment variables if Secret Manager fails or we're in development
             if not api_key:

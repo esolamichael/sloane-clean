@@ -301,14 +301,22 @@ const businessApi = {
         headers: Object.fromEntries([...response.headers])
       });
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`HTTP error! Status: ${response.status}, Body: ${errorText}`);
-        throw new Error(`HTTP error! Status: ${response.status}, Details: ${errorText || 'No additional error details'}`);
+      // Always parse the response even if not ok
+      const data = await response.json();
+      console.log('Scrape GBP response data:', data);
+      
+      // Handle 200 response with error field
+      if (data && data.success === false) {
+        console.error('API returned error message:', data.error);
+        throw new Error(data.error || 'API error occurred when scraping GBP data');
       }
       
-      const data = await response.json();
-      console.log('Scrape GBP response:', data);
+      // Handle HTTP errors
+      if (!response.ok) {
+        console.error(`HTTP error! Status: ${response.status}, Response:`, data);
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
       return data;
     } catch (error) {
       console.error("Error scraping Google Business Profile:", error);

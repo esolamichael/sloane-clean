@@ -9,9 +9,9 @@ env_variables:
   TWILIO_ACCOUNT_SID: "AC8cc057f196bec4492fd4a6e8da90aa8a"
   # Auth token moved to Secret Manager
   TWILIO_PHONE_NUMBER: "+14245295093"
-  # Flag to indicate we're running in production and should use Secret Manager
+  # Properly use Secret Manager in production
   USE_SECRET_MANAGER: "true"
-  # Google Maps API key is now retrieved from Secret Manager
+  # NO API KEYS in the codebase!
 
 automatic_scaling:
   max_instances: 3
