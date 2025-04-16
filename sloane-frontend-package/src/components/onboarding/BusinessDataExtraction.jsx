@@ -223,15 +223,71 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
           updateProgress(1);
           
           try {
-            result = await businessApi.scrapeGBP(url);
-            extractedBusiness = result.data;
+            console.log(`Attempting to scrape Google Business Profile for: ${url}`);
             
-            setCompletedSteps(prev => ({
-              ...prev,
-              metadata: { success: true, timestamp: new Date().toISOString() }
-            }));
+            // First check if we can reach the API at all
+            console.log('Checking API health...');
+            
+            // Try with the same base URL as the scraper will use
+            let apiBaseUrl = '';
+            if (process.env.NODE_ENV === 'development') {
+              apiBaseUrl = 'http://localhost:8000';
+            } else {
+              apiBaseUrl = '';
+            }
+            
+            const healthEndpoint = `${apiBaseUrl}/api/health`;
+            console.log(`Checking API health at: ${healthEndpoint}`);
+            
+            try {
+              const apiCheckResponse = await fetch(healthEndpoint);
+              console.log('API health check response:', apiCheckResponse);
+              
+              if (!apiCheckResponse.ok) {
+                console.error(`API health check failed: ${apiCheckResponse.status}`);
+                throw new Error('API server is not responding. Please try again later.');
+              }
+              
+              console.log('API health check succeeded, proceeding with GBP scraping');
+            } catch (healthError) {
+              console.error('API health check failed:', healthError);
+              throw new Error(`Cannot connect to API server: ${healthError.message}`);
+            }
+            
+            // Validate business name is provided
+            if (!url || url.trim() === '') {
+              throw new Error('Please enter a valid business name');
+            }
+            
+            // Now proceed with scraping
+            result = await businessApi.scrapeGBP(url);
+            
+            if (result && result.data) {
+              console.log('Successfully scraped GBP data:', result);
+              extractedBusiness = result.data;
+              
+              setCompletedSteps(prev => ({
+                ...prev,
+                metadata: { success: true, timestamp: new Date().toISOString() }
+              }));
+            } else if (result && result.success === false) {
+              console.error('Backend returned error:', result);
+              throw new Error(result.message || 'Backend returned an error during GBP scraping');
+            } else {
+              console.error('Unexpected response format:', result);
+              throw new Error('Unexpected response format from GBP scraping service');
+            }
           } catch (error) {
             console.error('Error scraping Google Business Profile:', error);
+            console.error('Error details:', {
+              message: error.message,
+              name: error.name,
+              stack: error.stack
+            });
+            
+            // Show error to user but still continue with mock data
+            setError(`Error scraping Google Business Profile: ${error.message}. Using sample data instead.`);
+            
             // Fall back to mock data
             const mockResult = await mockDataExtraction(url, source, null);
             extractedBusiness = mockResult.business;
@@ -248,6 +304,42 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
           
           try {
             console.log(`Attempting to scrape website URL: ${url}`);
+            
+            // Validate URL
+            if (!url) {
+              throw new Error('Please enter a valid URL');
+            }
+            
+            // First check if we can reach the API at all
+            console.log('Checking API health...');
+            
+            // Try with the same base URL as the scraper will use
+            let apiBaseUrl = '';
+            if (process.env.NODE_ENV === 'development') {
+              apiBaseUrl = 'http://localhost:8000';
+            } else {
+              apiBaseUrl = '';
+            }
+            
+            const healthEndpoint = `${apiBaseUrl}/api/health`;
+            console.log(`Checking API health at: ${healthEndpoint}`);
+            
+            try {
+              const apiCheckResponse = await fetch(healthEndpoint);
+              console.log('API health check response:', apiCheckResponse);
+              
+              if (!apiCheckResponse.ok) {
+                console.error(`API health check failed: ${apiCheckResponse.status}`);
+                throw new Error('API server is not responding. Please try again later.');
+              }
+              
+              console.log('API health check succeeded, proceeding with scraping');
+            } catch (healthError) {
+              console.error('API health check failed:', healthError);
+              throw new Error(`Cannot connect to API server: ${healthError.message}`);
+            }
+            
+            // Now proceed with scraping
             result = await businessApi.scrapeWebsite(url);
             
             if (result && result.data) {

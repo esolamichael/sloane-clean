@@ -164,6 +164,18 @@ const businessApi = {
     try {
       console.log(`Attempting to scrape website: ${url}`);
       
+      // Validate URL
+      if (!url) {
+        throw new Error('No URL provided');
+      }
+      
+      // Ensure URL has http or https prefix
+      let normalizedUrl = url;
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        normalizedUrl = 'https://' + url;
+        console.log(`Normalized URL to: ${normalizedUrl}`);
+      }
+      
       // Add business_id header for authorization
       const headers = {
         'X-Business-ID': 'test_business_id'
@@ -182,25 +194,46 @@ const businessApi = {
         console.log('Using production API for scraping:', apiBaseUrl);
       }
       
-      console.log(`Making request to: ${apiBaseUrl}/business/scrape-website`);
+      const endpoint = `${apiBaseUrl}/business/scrape-website`;
+      console.log(`Making request to: ${endpoint}`);
       
-      // Use direct fetch with proper CORS settings
-      const response = await fetch(`${apiBaseUrl}/business/scrape-website`, {
+      // Add timestamp to avoid caching
+      const timestamp = new Date().getTime();
+      
+      // Use direct fetch with proper CORS settings and timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...headers,
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ 
+          url: normalizedUrl,
+          _t: timestamp // Add timestamp to avoid caching
+        }),
         mode: 'cors',
-        credentials: 'omit'
+        credentials: 'omit',
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      console.log('Received response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries([...response.headers])
       });
       
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`HTTP error! Status: ${response.status}, Body: ${errorText}`);
-        throw new Error(`HTTP error! Status: ${response.status}`);
+        throw new Error(`HTTP error! Status: ${response.status}, Details: ${errorText || 'No additional error details'}`);
       }
       
       const data = await response.json();
@@ -208,6 +241,9 @@ const businessApi = {
       return data;
     } catch (error) {
       console.error("Error scraping website:", error);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timed out. The server took too long to respond.');
+      }
       throw error;
     }
   },
@@ -216,6 +252,11 @@ const businessApi = {
   scrapeGBP: async (businessName, location = null) => {
     try {
       console.log(`Attempting to scrape GBP for business: ${businessName}`);
+      
+      // Validate business name
+      if (!businessName) {
+        throw new Error('No business name provided');
+      }
       
       // Add business_id header for authorization
       const headers = {
@@ -235,28 +276,47 @@ const businessApi = {
         console.log('Using production API for scraping GBP:', apiBaseUrl);
       }
       
-      console.log(`Making request to: ${apiBaseUrl}/business/scrape-gbp`);
+      const endpoint = `${apiBaseUrl}/business/scrape-gbp`;
+      console.log(`Making request to: ${endpoint}`);
       
-      // Use direct fetch with proper CORS settings
-      const response = await fetch(`${apiBaseUrl}/business/scrape-gbp`, {
+      // Add timestamp to avoid caching
+      const timestamp = new Date().getTime();
+      
+      // Use direct fetch with proper CORS settings and timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...headers,
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         },
         body: JSON.stringify({ 
           business_name: businessName, 
-          location 
+          location,
+          _t: timestamp // Add timestamp to avoid caching
         }),
         mode: 'cors',
-        credentials: 'omit'
+        credentials: 'omit',
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      console.log('Received response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries([...response.headers])
       });
       
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`HTTP error! Status: ${response.status}, Body: ${errorText}`);
-        throw new Error(`HTTP error! Status: ${response.status}`);
+        throw new Error(`HTTP error! Status: ${response.status}, Details: ${errorText || 'No additional error details'}`);
       }
       
       const data = await response.json();
@@ -264,6 +324,9 @@ const businessApi = {
       return data;
     } catch (error) {
       console.error("Error scraping Google Business Profile:", error);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timed out. The server took too long to respond.');
+      }
       throw error;
     }
   },
