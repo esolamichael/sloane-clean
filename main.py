@@ -144,12 +144,31 @@ if not business_routes_registered:
                 business_name = data.get('business_name')
                 location = data.get('location')
                 
+                logger.info(f"GBP scraper request received for business: {business_name}")
+                
                 # Basic validation
                 if not business_name:
+                    logger.error("Business name is required but was not provided")
                     return jsonify({
                         "success": False,
                         "error": "Business name is required"
                     }), 400
+                
+                # Make sure the Google Maps API key is available
+                api_key = get_secret("GOOGLE_MAPS_API_KEY")
+                if not api_key:
+                    logger.error("Google Maps API key could not be retrieved from Secret Manager")
+                    return jsonify({
+                        "success": False,
+                        "error": "Google Maps API key not available",
+                        "details": "The API key for Google Places API could not be retrieved from Secret Manager."
+                    }), 500
+                
+                # Log successful API key retrieval (without revealing the key)
+                logger.info(f"Successfully retrieved Google Maps API key from Secret Manager (length: {len(api_key)})")
+                
+                # Make the API key available to the scraper via environment variable
+                os.environ["GOOGLE_MAPS_API_KEY"] = api_key
                 
                 # Use test business ID for simplicity
                 business_id = "test_business_id" 
@@ -158,10 +177,11 @@ if not business_routes_registered:
                 scraper = GBPScraper()
                 
                 # Use asyncio to run the async scraping function
+                logger.info(f"Starting GBP scraper for business: {business_name}")
                 result = asyncio.run(scraper.scrape_gbp(business_id, business_name, location))
                 
                 # Check for error in result
-                if "error" in result:
+                if isinstance(result, dict) and "error" in result:
                     logger.warning(f"GBP scraper error: {result.get('error')}")
                     return jsonify({
                         "success": False, 
@@ -175,6 +195,7 @@ if not business_routes_registered:
                 return jsonify({"success": True, "data": result})
             except Exception as e:
                 logger.error(f"Error in GBP scraping endpoint: {str(e)}")
+                logger.exception("Detailed traceback for GBP scraper error:")
                 return jsonify({
                     "success": False,
                     "error": str(e),

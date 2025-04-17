@@ -2,7 +2,7 @@
 set -e
 
 echo "----------------------------------------------------"
-echo "Deploying updated application with GBP scraper fix"
+echo "Deploying updated application with GBP scraper fix v2"
 echo "----------------------------------------------------"
 
 # 1. Ensure Secret Manager is enabled
@@ -31,11 +31,11 @@ cp -r app /tmp/deploy_cache/
 cp main.py /tmp/deploy_cache/
 cp requirements.txt /tmp/deploy_cache/
 
-# 6. Create a clean app.yaml file
+# 6. Create a clean app.yaml file with enhanced environment variables
 echo "Creating app.yaml file..."
 cat > /tmp/deploy_cache/app.yaml << 'EOF'
 runtime: python39
-entrypoint: gunicorn -b :$PORT main:app
+entrypoint: gunicorn -b :$PORT main:app --timeout 120
 env_variables:
   API_HOST: "https://clean-code-app-1744825963.uc.r.appspot.com"
   MONGODB_NAME: "sloane_ai_service" 
@@ -43,24 +43,93 @@ env_variables:
   TWILIO_PHONE_NUMBER: "+14245295093"
   USE_SECRET_MANAGER: "true"
   GOOGLE_CLOUD_PROJECT: "clean-code-app-1744825963"
+  DEBUG: "true"
 instance_class: F2
 automatic_scaling:
   min_instances: 1
   max_instances: 3
   min_idle_instances: 1
+  max_idle_instances: 2
   target_cpu_utilization: 0.65
   target_throughput_utilization: 0.65
   max_concurrent_requests: 50
+  min_pending_latency: 100ms
+  max_pending_latency: 5000ms
+inbound_services:
+- warmup
 EOF
 
 echo "app.yaml file created successfully"
 
-# 7. Run the deployment
+# 7. Create logging.yaml file for detailed logging
+echo "Creating logging.yaml file..."
+cat > /tmp/deploy_cache/logging.yaml << 'EOF'
+version: 1
+formatters:
+  standard:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: DEBUG
+    formatter: standard
+    stream: ext://sys.stdout
+loggers:
+  '':
+    level: INFO
+    handlers: [console]
+    propagate: no
+  app.business.scrapers:
+    level: DEBUG
+    handlers: [console]
+    propagate: no
+  main:
+    level: DEBUG
+    handlers: [console]
+    propagate: no
+EOF
+
+# 8. Verify Google Maps API key exists in Secret Manager
+echo "Verifying Google Maps API key in Secret Manager..."
+SECRET_EXISTS=$(gcloud secrets describe GOOGLE_MAPS_API_KEY --project=${PROJECT_ID} 2>/dev/null || echo "not-exists")
+
+if [[ "$SECRET_EXISTS" == *"not-exists"* ]]; then
+  echo "ERROR: GOOGLE_MAPS_API_KEY does not exist in Secret Manager."
+  echo "Please create it with: gcloud secrets create GOOGLE_MAPS_API_KEY --replication-policy="automatic""
+  echo "Then add the value with: echo -n 'your-api-key' | gcloud secrets versions add GOOGLE_MAPS_API_KEY --data-file=-"
+  exit 1
+else
+  echo "Google Maps API key found in Secret Manager."
+fi
+
+# 9. Run the deployment with no-promote to allow testing
 echo "Deploying application to App Engine..."
 cd /tmp/deploy_cache
-gcloud app deploy app.yaml --version=fixed-gbp-scraper-v1 --quiet
+gcloud app deploy app.yaml --version=fixed-gbp-scraper-v2 --no-promote --quiet
 
-echo "----------------------------------------------------"
-echo "Deployment complete!"
-echo "App URL: https://clean-code-app-1744825963.uc.r.appspot.com"
-echo "----------------------------------------------------"
+# 10. Test the GBP scraper with the new version
+echo "Testing GBP scraper endpoint..."
+NEW_VERSION_URL="https://fixed-gbp-scraper-v2-dot-clean-code-app-1744825963.uc.r.appspot.com"
+echo "Sending test request to: ${NEW_VERSION_URL}/api/health"
+
+# Use curl to check if the new version is working
+HEALTH_CHECK=$(curl -s "${NEW_VERSION_URL}/api/health" || echo "Connection failed")
+
+if [[ "$HEALTH_CHECK" == *"healthy"* ]]; then
+  echo "Health check passed! New version is responding correctly."
+  
+  # Now promote the new version to receive all traffic
+  echo "Promoting new version to receive all traffic..."
+  gcloud app services set-traffic default --splits fixed-gbp-scraper-v2=1 --quiet
+  
+  echo "----------------------------------------------------"
+  echo "Deployment complete and new version promoted!"
+  echo "App URL: https://clean-code-app-1744825963.uc.r.appspot.com"
+  echo "----------------------------------------------------"
+else
+  echo "WARNING: Health check failed with response: ${HEALTH_CHECK}"
+  echo "New version has been deployed but not promoted."
+  echo "You can manually test and promote it at: ${NEW_VERSION_URL}"
+  echo "To promote: gcloud app services set-traffic default --splits fixed-gbp-scraper-v2=1"
+  echo "----------------------------------------------------"
+fi

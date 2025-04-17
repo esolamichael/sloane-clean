@@ -382,113 +382,114 @@ class GBPScraper:
             import aiohttp
             import urllib.parse
             
-            # Get API key using Secret Manager in production or environment variables in development
-            import os
-            
-            # Check if we're running in production with Secret Manager
-            use_secret_manager = os.environ.get('USE_SECRET_MANAGER', 'false').lower() == 'true'
-            logger.info(f"USE_SECRET_MANAGER environment variable: {os.environ.get('USE_SECRET_MANAGER')}")
-            logger.info(f"Using Secret Manager: {use_secret_manager}")
-            
-            api_key = None
-            
-            # Always try to use Secret Manager in production (App Engine)
-            if use_secret_manager:
-                logger.info("Attempting to use Secret Manager for API key")
+            # Get API key using the centralized Secret Manager function
+            try:
+                # First try to import the get_secret function from main.py
+                logger.info("Trying to import get_secret from main module")
+                
                 try:
-                    # Import Secret Manager client only when needed
+                    # This import works when called from main.py
+                    from main import get_secret
+                    logger.info("Successfully imported get_secret from main module")
+                except ImportError:
+                    # If that fails, try a relative import (for when called from within the app package)
+                    logger.info("Main module import failed, trying absolute import")
+                    import sys
+                    import importlib.util
+                    
+                    # Try to find the main module in sys.modules
+                    if 'main' in sys.modules:
+                        logger.info("Found main in sys.modules")
+                        main_module = sys.modules['main']
+                        get_secret = getattr(main_module, 'get_secret')
+                    else:
+                        # If that fails, try to import it directly
+                        logger.info("Trying to load main module from file")
+                        # Get current working directory
+                        import os
+                        cwd = os.getcwd()
+                        logger.info(f"Current working directory: {cwd}")
+                        
+                        # Look for main.py in common locations
+                        potential_paths = [
+                            os.path.join(cwd, 'main.py'),
+                            os.path.join(os.path.dirname(cwd), 'main.py'),
+                            '/app/main.py',  # Common path in containerized environments
+                        ]
+                        
+                        main_spec = None
+                        for path in potential_paths:
+                            if os.path.exists(path):
+                                logger.info(f"Found main.py at {path}")
+                                main_spec = importlib.util.spec_from_file_location("main", path)
+                                break
+                        
+                        if main_spec:
+                            main_module = importlib.util.module_from_spec(main_spec)
+                            main_spec.loader.exec_module(main_module)
+                            get_secret = getattr(main_module, 'get_secret')
+                        else:
+                            raise ImportError("Could not find main.py")
+                
+                # Use the get_secret function to get the API key
+                logger.info("Retrieving Google Maps API key using get_secret")
+                api_key = get_secret("GOOGLE_MAPS_API_KEY")
+                logger.info(f"API key retrieved: {'Yes' if api_key else 'No'}")
+                
+                # Validate the API key
+                if api_key:
+                    key_length = len(api_key)
+                    is_valid = key_length > 15  # Most API keys are at least 16 chars
+                    logger.info(f"API key validation: Length={key_length}, Valid format={is_valid}")
+                    
+                    if not is_valid:
+                        logger.warning("API key retrieved but it doesn't appear to be in a valid format")
+                else:
+                    logger.error("No API key retrieved from get_secret")
+            except Exception as e:
+                logger.error(f"Error using get_secret: {str(e)}")
+                logger.exception("Full traceback for get_secret error:")
+                api_key = None
+            
+            # If get_secret failed, try to get the API key from environment
+            if not api_key:
+                # Log that we're falling back to a direct method
+                logger.info("Falling back to direct Secret Manager access")
+                
+                try:
+                    # Import Secret Manager client
                     from google.cloud import secretmanager
                     
-                    # Use the correct project ID for Clean Code App
-                    project_id = 'clean-code-app-1744825963'
-                    logger.info(f"Using hardcoded project ID: {project_id}")
+                    # Use the correct project ID
+                    project_id = os.environ.get('GOOGLE_CLOUD_PROJECT', 'clean-code-app-1744825963')
+                    logger.info(f"Using project ID: {project_id}")
                     
-                    # Log all available environment variables for debugging
-                    env_vars = {k: v for k, v in os.environ.items() if 'GOOGLE' in k or 'SECRET' in k or 'PROJECT' in k}
-                    logger.info(f"Environment variables related to Google/Secret Manager: {list(env_vars.keys())}")
+                    # Create the Secret Manager client
+                    client = secretmanager.SecretManagerServiceClient()
                     
-                    if not project_id:
-                        # If no hardcoded project ID, try environment variables
-                        project_id = os.environ.get('GOOGLE_CLOUD_PROJECT')
-                        logger.info(f"Using project ID from environment: {project_id}")
-                        
-                    if not project_id:
-                        # As a fallback, try to get it from App Engine environment
-                        app_engine_service = os.environ.get('GAE_SERVICE', 'default')
-                        if '-' in app_engine_service:
-                            project_id = app_engine_service.split('-')[0]
+                    # Access the secret by name
+                    secret_name = "GOOGLE_MAPS_API_KEY"
+                    secret_path = f"projects/{project_id}/secrets/{secret_name}/versions/latest"
+                    logger.info(f"Attempting to access secret: {secret_path}")
                     
-                    if not project_id:
-                        # If still no project ID, try to get it from the metadata server
-                        try:
-                            import requests
-                            # This URL is only available on Google Cloud
-                            metadata_url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
-                            project_id = requests.get(
-                                metadata_url, 
-                                headers={"Metadata-Flavor": "Google"}
-                            ).text
-                        except Exception as e:
-                            logger.warning(f"Could not get project ID from metadata server: {str(e)}")
-                    
-                    if project_id:
-                        # Create the Secret Manager client
-                        client = secretmanager.SecretManagerServiceClient()
-                        
-                        # Access the secret by name - use conventional secret names
-                        secret_name = "GOOGLE_MAPS_API_KEY"
-                        secret_path = f"projects/{project_id}/secrets/{secret_name}/versions/latest"
-                        
-                        logger.info(f"Attempting to access secret: {secret_path}")
-                        
-                        # Get the secret value
-                        logger.info(f"Attempting to access secret version: {secret_path}")
-                        response = client.access_secret_version(request={"name": secret_path})
-                        api_key = response.payload.data.decode("UTF-8")
-                        
-                        # Log success with minimal info for security
-                        key_length = len(api_key) if api_key else 0
-                        is_valid = bool(api_key and key_length > 15)  # Most API keys are at least 16 chars
-                        logger.info(f"Successfully retrieved API key from Secret Manager. Key length: {key_length}, Valid format: {is_valid}")
-                        
-                        if not is_valid:
-                            logger.warning("API key retrieved but it doesn't appear to be in a valid format")
-                        # Do not log any part of the key itself, even partially
-                except Exception as e:
-                    logger.error(f"Error accessing Secret Manager: {str(e)}")
-                    logger.exception("Detailed Secret Manager access error:")
-                    
-                    # Log more details about the project and environment
-                    logger.error(f"Project ID attempt: {project_id}")
-                    logger.error(f"USE_SECRET_MANAGER env var: {os.environ.get('USE_SECRET_MANAGER')}")
-                    
-                    # Check if secret exists
-                    try:
-                        # List available secrets
-                        available_secrets = []
-                        if project_id:
-                            parent = f"projects/{project_id}"
-                            sm_client = secretmanager.SecretManagerServiceClient()
-                            for secret in sm_client.list_secrets(request={"parent": parent}):
-                                available_secrets.append(secret.name)
-                            logger.info(f"Available secrets: {available_secrets}")
-                        else:
-                            logger.error("Cannot list secrets - no project ID available")
-                    except Exception as list_err:
-                        logger.error(f"Error listing secrets: {str(list_err)}")
+                    # Get the secret value
+                    response = client.access_secret_version(request={"name": secret_path})
+                    api_key = response.payload.data.decode("UTF-8")
+                    logger.info("Successfully retrieved API key from direct Secret Manager access")
+                except Exception as sm_error:
+                    logger.error(f"Error accessing Secret Manager directly: {str(sm_error)}")
+                    api_key = None
             
-            # Fall back to environment variables if Secret Manager fails or we're in development
+            # Final fallback to environment variables
             if not api_key:
-                logger.info("Attempting to get API key from environment variables")
+                logger.info("Falling back to environment variables")
                 api_key = os.environ.get('GOOGLE_MAPS_API_KEY')
-                if not api_key:
-                    # Fallback to potential other environment variables
-                    api_key = os.environ.get('GOOGLE_PLACES_API_KEY') or os.environ.get('PLACES_API_KEY')
+                if api_key:
+                    logger.info("Retrieved API key from GOOGLE_MAPS_API_KEY environment variable")
             
             # If still no API key, return an error
             if not api_key:
-                # If no API key found, return a specific error message to indicate this issue
-                logger.error("Could not retrieve Google Places API key from Secret Manager or environment variables")
+                logger.error("Could not retrieve Google Maps API key from any source")
                 return {
                     "error": "Google Places API key not configured", 
                     "details": "The server could not access the necessary API key for Google's services.",
