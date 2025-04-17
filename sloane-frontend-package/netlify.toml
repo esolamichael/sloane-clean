@@ -1,6 +1,19 @@
-# DO NOT USE THIS FILE
-# This file is deprecated and should be ignored
-# All configuration is now in the root netlify.toml file
-# This file is kept for reference only and should not be used
+[build]
+  command = "CI=false npm run build"
+  publish = "build"
 
-# NETLIFY: PLEASE IGNORE THIS FILE
+[build.environment]
+  NODE_VERSION = "16"
+  NPM_CONFIG_LEGACY_PEER_DEPS = "true"
+  CI = "false"
+
+[[redirects]]
+  from = "/api/*"
+  to = "https://clean-code-app-1744825963.uc.r.appspot.com/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
