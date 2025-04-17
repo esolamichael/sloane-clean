@@ -98,14 +98,21 @@ def init_api_keys():
         logger.error(f"Error initializing API keys: {str(e)}")
         return False
 
-# Create Flask app
+# Create Flask app - ensure this is exposed as 'app' variable for gunicorn
 app = Flask(__name__)
+print("========== MAIN.PY APPLICATION STARTING ==========")
+logger.info("Main.py Flask application initialized")
 
-# Register blueprints for Flask
+# Register blueprints for Flask - make this more robust to missing dependencies
+# Register routes in blocks, so business_data routes can still work even if analytics fails
+business_routes_registered = False
+
 try:
+    # Import and register business data routes without the analytics routes
     from app.api.routes.business_data import router as business_router
     app.register_blueprint(business_router)
-    logger.info("Registered business data routes successfully")
+    business_routes_registered = True
+    logger.info("Registered core business data routes successfully")
     
     # Add direct testing routes on the main app
     @app.route('/api/business/test', methods=['GET'])
@@ -119,6 +126,64 @@ try:
         })
 except Exception as e:
     logger.error(f"Error registering business routes: {str(e)}")
+
+# Add a direct GBP scraping endpoint to the main app if routes couldn't be registered
+if not business_routes_registered:
+    logger.info("Adding direct GBP scraper endpoint to main app")
+    
+    try:
+        from app.business.scrapers import GBPScraper
+        import asyncio
+        
+        @app.route('/api/business/scrape-gbp', methods=['POST'])
+        def scrape_gbp():
+            """Direct GBP scraper route on main app"""
+            try:
+                # Get request data
+                data = request.get_json()
+                business_name = data.get('business_name')
+                location = data.get('location')
+                
+                # Basic validation
+                if not business_name:
+                    return jsonify({
+                        "success": False,
+                        "error": "Business name is required"
+                    }), 400
+                
+                # Use test business ID for simplicity
+                business_id = "test_business_id" 
+                
+                # Create scraper and run the scraping function
+                scraper = GBPScraper()
+                
+                # Use asyncio to run the async scraping function
+                result = asyncio.run(scraper.scrape_gbp(business_id, business_name, location))
+                
+                # Check for error in result
+                if "error" in result:
+                    logger.warning(f"GBP scraper error: {result.get('error')}")
+                    return jsonify({
+                        "success": False, 
+                        "error": result.get("error"), 
+                        "details": result.get("details", ""),
+                        "business_name": result.get("business_name", business_name)
+                    })
+                
+                # Return successful response with data
+                logger.info(f"GBP scraping successful for: {business_name}")
+                return jsonify({"success": True, "data": result})
+            except Exception as e:
+                logger.error(f"Error in GBP scraping endpoint: {str(e)}")
+                return jsonify({
+                    "success": False,
+                    "error": str(e),
+                    "business_name": business_name if 'business_name' in locals() else None
+                })
+        
+        logger.info("Added direct GBP scraper endpoint to main app")
+    except Exception as e:
+        logger.error(f"Error adding direct GBP scraper endpoint: {str(e)}")
 
 # Initialize MongoDB and API keys before first request
 @app.before_request
