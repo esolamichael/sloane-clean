@@ -114,49 +114,73 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
           try {
             console.log(`Attempting to scrape Google Business Profile for: ${url}`);
             
-            // Skip API health check for now - it causes unnecessary complications
+            // Log that we are using the real API, not mock data
+            console.log('IMPORTANT: Using real Google Business Profile API scraping - NO MOCK DATA');
             
             // Validate business name is provided
             if (!url || url.trim() === '') {
               throw new Error('Please enter a valid business name');
             }
             
+            // Check if API is available first
+            const healthCheck = await fetch('/api/health', {
+              // Add cache-busting parameter
+              headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+              },
+              cache: 'no-store'
+            });
+            
+            if (!healthCheck.ok) {
+              console.error('Backend API health check failed:', await healthCheck.text());
+              throw new Error('Backend API is not available. Please contact support.');
+            }
+            
+            console.log('Backend API health check passed');
+            
             // Now proceed with scraping - ensure we're using the real API
             console.log('Making real API call to scrape GBP with business name:', url);
             
-            // Use the real GBP scraper API
-            try {
-              // Check if API is available first
-              const healthCheck = await fetch('/api/health');
-              if (!healthCheck.ok) {
-                throw new Error('Backend API not available. Please try again later.');
-              }
-              
-              // Call the backend API endpoint that uses Secret Manager for the API key
-              console.log('Calling GBP scraper with business name:', url);
-              result = await businessApi.scrapeGBP(url);
-              console.log('GBP scraper response:', result);
-              
-              if (!result) {
-                throw new Error('No data returned from GBP scraper');
-              }
-              
-              if (result.success === false) {
-                console.error('GBP scraper error:', result.error);
-                throw new Error(result.error || 'Error from GBP scraper');
-              }
-              
-              if (!result.data) {
-                throw new Error('Invalid data structure returned from GBP scraper');
-              }
-              
-              extractedBusiness = result.data;
-              console.log('Successfully extracted business data from GBP:', extractedBusiness);
-            } catch (apiError) {
-              console.error('Error calling GBP scraper API:', apiError);
-              setError(`Unable to retrieve business data from Google: ${apiError.message}. Please try again or enter your information manually.`);
-              throw apiError;
+            // Call the backend API endpoint that uses Secret Manager for the API key
+            result = await businessApi.scrapeGBP(url);
+            console.log('GBP scraper raw response:', result);
+            
+            // Detailed validation and error handling
+            if (!result) {
+              console.error('No data returned from GBP scraper');
+              throw new Error('The backend API returned an empty response. Please try again.');
             }
+            
+            if (result.success === false) {
+              console.error('GBP scraper returned error:', result.error);
+              
+              let errorMessage = result.error || 'Unknown error from Google Business Profile scraper';
+              if (result.details) {
+                errorMessage += `: ${result.details}`;
+              }
+              
+              throw new Error(errorMessage);
+            }
+            
+            if (!result.data) {
+              console.error('Invalid response structure - missing data property:', result);
+              throw new Error('The backend returned an invalid data structure. Please try again.');
+            }
+            
+            // Check if the data object contains essential business information
+            const hasValidData = result.data && (
+              (result.data.name && result.data.formatted_address) || 
+              (result.data.business_name && result.data.address)
+            );
+            
+            if (!hasValidData) {
+              console.error('GBP data is missing essential business information:', result.data);
+              throw new Error('Could not find essential business information. Please try a different business name.');
+            }
+            
+            extractedBusiness = result.data;
+            console.log('Successfully extracted business data from GBP:', extractedBusiness);
             
             // Set success state for the metadata step
             setCompletedSteps(prev => ({
@@ -174,12 +198,14 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
             // Set a clear error message for the user
             let errorMessage = `Error retrieving business data: ${error.message}`;
             if (error.message.includes('API key')) {
-              errorMessage = "API key issue detected. Please contact support to resolve this.";
+              errorMessage = "Google Maps API key issue detected. Please contact support to resolve this.";
+            } else if (error.message.includes('No business found') || error.message.includes('not find')) {
+              errorMessage = `Could not find a business matching "${url}". Please try a different business name or enter information manually.`;
             }
             
             setError(errorMessage);
             
-            // Important: DO NOT use mock data - throw error to prevent proceeding
+            // No fallback to mock data - explicitly throw error to prevent proceeding
             if (onError) {
               onError(error);
             }
@@ -190,7 +216,7 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
               metadata: { success: false, timestamp: new Date().toISOString(), error: error.message }
             }));
             
-            // Exit function to prevent moving forward with mock data
+            // Exit function to prevent any processing with mock data
             throw error;
           }
         } else {
