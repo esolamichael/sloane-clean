@@ -124,45 +124,39 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
             // Now proceed with scraping - ensure we're using the real API
             console.log('Making real API call to scrape GBP with business name:', url);
             
-            // Use mock data temporarily while Secret Manager is being fixed:
-            console.log('Using mock GBP data temporarily');
-            const mockGBPData = {
-              success: true,
-              data: {
-                "business_id": "test_business_id",
-                "source": "gbp",
-                "name": url, // Use the entered business name
-                "formatted_address": "123 Main St, San Francisco, CA 94105",
-                "phone": "(415) 555-1234",
-                "website": "https://example.com",
-                "rating": 4.5,
-                "reviews_count": 128,
-                "categories": ["Restaurant", "Coffee Shop", "Bakery"],
-                "opening_hours": {
-                  "monday": { "isOpen": true, "openTime": "08:00 AM", "closeTime": "10:00 PM" },
-                  "tuesday": { "isOpen": true, "openTime": "08:00 AM", "closeTime": "10:00 PM" },
-                  "wednesday": { "isOpen": true, "openTime": "08:00 AM", "closeTime": "10:00 PM" },
-                  "thursday": { "isOpen": true, "openTime": "08:00 AM", "closeTime": "10:00 PM" },
-                  "friday": { "isOpen": true, "openTime": "08:00 AM", "closeTime": "11:00 PM" },
-                  "saturday": { "isOpen": true, "openTime": "09:00 AM", "closeTime": "11:00 PM" },
-                  "sunday": { "isOpen": true, "openTime": "09:00 AM", "closeTime": "08:00 PM" }
-                },
-                "reviews": [
-                  { "author": "John D.", "rating": 5, "text": "Great service and atmosphere!" },
-                  { "author": "Sarah M.", "rating": 4, "text": "Delicious food, slightly pricey." }
-                ],
-                "services": [
-                  { "name": "Dine-in", "description": "Full service restaurant", "price": "Varies" },
-                  { "name": "Takeout", "description": "Order for pickup", "price": "Varies" },
-                  { "name": "Delivery", "description": "Home delivery available", "price": "Varies" }
-                ]
+            // Use the real GBP scraper API
+            try {
+              // Check if API is available first
+              const healthCheck = await fetch('/api/health');
+              if (!healthCheck.ok) {
+                throw new Error('Backend API not available. Please try again later.');
               }
-            };
-            
-            result = mockGBPData;
-            console.log('Using mock GBP data temporarily:', mockGBPData);
-            
-            extractedBusiness = mockGBPData.data;
+              
+              // Call the backend API endpoint that uses Secret Manager for the API key
+              console.log('Calling GBP scraper with business name:', url);
+              result = await businessApi.scrapeGBP(url);
+              console.log('GBP scraper response:', result);
+              
+              if (!result) {
+                throw new Error('No data returned from GBP scraper');
+              }
+              
+              if (result.success === false) {
+                console.error('GBP scraper error:', result.error);
+                throw new Error(result.error || 'Error from GBP scraper');
+              }
+              
+              if (!result.data) {
+                throw new Error('Invalid data structure returned from GBP scraper');
+              }
+              
+              extractedBusiness = result.data;
+              console.log('Successfully extracted business data from GBP:', extractedBusiness);
+            } catch (apiError) {
+              console.error('Error calling GBP scraper API:', apiError);
+              setError(`Unable to retrieve business data from Google: ${apiError.message}. Please try again or enter your information manually.`);
+              throw apiError;
+            }
             
             // Set success state for the metadata step
             setCompletedSteps(prev => ({
