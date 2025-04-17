@@ -387,18 +387,30 @@ class GBPScraper:
             
             # Check if we're running in production with Secret Manager
             use_secret_manager = os.environ.get('USE_SECRET_MANAGER', 'false').lower() == 'true'
+            logger.info(f"USE_SECRET_MANAGER environment variable: {os.environ.get('USE_SECRET_MANAGER')}")
+            logger.info(f"Using Secret Manager: {use_secret_manager}")
+            
             api_key = None
             
+            # Always try to use Secret Manager in production (App Engine)
             if use_secret_manager:
+                logger.info("Attempting to use Secret Manager for API key")
                 try:
                     # Import Secret Manager client only when needed
                     from google.cloud import secretmanager
                     
                     # Use the correct project ID for Clean Code App
                     project_id = 'clean-code-app-1744825963'
+                    logger.info(f"Using hardcoded project ID: {project_id}")
+                    
+                    # Log all available environment variables for debugging
+                    env_vars = {k: v for k, v in os.environ.items() if 'GOOGLE' in k or 'SECRET' in k or 'PROJECT' in k}
+                    logger.info(f"Environment variables related to Google/Secret Manager: {list(env_vars.keys())}")
+                    
                     if not project_id:
                         # If no hardcoded project ID, try environment variables
                         project_id = os.environ.get('GOOGLE_CLOUD_PROJECT')
+                        logger.info(f"Using project ID from environment: {project_id}")
                         
                     if not project_id:
                         # As a fallback, try to get it from App Engine environment
@@ -430,12 +442,17 @@ class GBPScraper:
                         logger.info(f"Attempting to access secret: {secret_path}")
                         
                         # Get the secret value
+                        logger.info(f"Attempting to access secret version: {secret_path}")
                         response = client.access_secret_version(request={"name": secret_path})
                         api_key = response.payload.data.decode("UTF-8")
                         
                         # Log success with minimal info for security
                         key_length = len(api_key) if api_key else 0
-                        logger.info(f"Successfully retrieved API key from Secret Manager. Key length: {key_length}")
+                        is_valid = bool(api_key and key_length > 15)  # Most API keys are at least 16 chars
+                        logger.info(f"Successfully retrieved API key from Secret Manager. Key length: {key_length}, Valid format: {is_valid}")
+                        
+                        if not is_valid:
+                            logger.warning("API key retrieved but it doesn't appear to be in a valid format")
                         # Do not log any part of the key itself, even partially
                 except Exception as e:
                     logger.error(f"Error accessing Secret Manager: {str(e)}")

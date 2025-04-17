@@ -105,7 +105,18 @@ app = Flask(__name__)
 try:
     from app.api.routes.business_data import router as business_router
     app.register_blueprint(business_router)
-    logger.info("Registered business data routes")
+    logger.info("Registered business data routes successfully")
+    
+    # Add direct testing routes on the main app
+    @app.route('/api/business/test', methods=['GET'])
+    def test_business_routes():
+        return jsonify({
+            "status": "Business routes registered", 
+            "endpoints": [
+                "/api/business/scrape-website",
+                "/api/business/scrape-gbp"
+            ]
+        })
 except Exception as e:
     logger.error(f"Error registering business routes: {str(e)}")
 
