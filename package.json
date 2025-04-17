@@ -1,7 +1,6 @@
 {
   "name": "netlify-config",
   "version": "1.0.0",
-  "scripts": {
-    "build": "cd sloane-frontend-package && npm install && npm run build"
-  }
+  "description": "Root configuration - don't use this for builds",
+  "private": true
 }
