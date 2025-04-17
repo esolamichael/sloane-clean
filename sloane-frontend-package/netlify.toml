@@ -1,5 +1,5 @@
 [build]
-  command = "CI=false npm run build"
+  command = "CI=false SKIP_PREFLIGHT_CHECK=true npm run build"
   publish = "build"
 
 [build.environment]

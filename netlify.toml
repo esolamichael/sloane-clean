@@ -1,12 +1,13 @@
 [build]
   base = "sloane-frontend-package"
   publish = "build"
-  command = "./netlify-build.sh"
+  command = "SKIP_PREFLIGHT_CHECK=true npm install --legacy-peer-deps && SKIP_PREFLIGHT_CHECK=true CI=false npm run build"
 
 [build.environment]
   NODE_VERSION = "16"
   NPM_CONFIG_LEGACY_PEER_DEPS = "true"
   CI = "false"
+  SKIP_PREFLIGHT_CHECK = "true"
   # Note: We're removing REACT_APP_API_URL so the app uses relative URLs
   # IMPORTANT: API keys should be set in Netlify environment variables, not here
 
