@@ -394,10 +394,14 @@ class GBPScraper:
                     # Import Secret Manager client only when needed
                     from google.cloud import secretmanager
                     
-                    # Get the project ID from the environment or compute from the service name
-                    project_id = os.environ.get('GOOGLE_CLOUD_PROJECT')
+                    # Use the correct project ID for Clean Code App
+                    project_id = 'clean-code-app-1744825963'
                     if not project_id:
-                        # App Engine sets service name in environment
+                        # If no hardcoded project ID, try environment variables
+                        project_id = os.environ.get('GOOGLE_CLOUD_PROJECT')
+                        
+                    if not project_id:
+                        # As a fallback, try to get it from App Engine environment
                         app_engine_service = os.environ.get('GAE_SERVICE', 'default')
                         if '-' in app_engine_service:
                             project_id = app_engine_service.split('-')[0]
