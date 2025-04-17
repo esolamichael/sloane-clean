@@ -429,10 +429,10 @@ class GBPScraper:
                         response = client.access_secret_version(request={"name": secret_path})
                         api_key = response.payload.data.decode("UTF-8")
                         
-                        # Log success but not the actual key
+                        # Log success with minimal info for security
                         key_length = len(api_key) if api_key else 0
                         logger.info(f"Successfully retrieved API key from Secret Manager. Key length: {key_length}")
-                        logger.info(f"API key first few chars: {api_key[:3]}*** last few chars: ***{api_key[-3:]}")
+                        # Do not log any part of the key itself, even partially
                 except Exception as e:
                     logger.error(f"Error accessing Secret Manager: {str(e)}")
                     logger.exception("Detailed Secret Manager access error:")
