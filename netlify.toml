@@ -1,7 +1,9 @@
 [build]
-  base = "sloane-frontend-package"
-  publish = "build"
-  command = "npm install && npm run build"
+  # Important: We're using the root directory with a special package.json that delegates to sloane-frontend-package
+  base = ""
+  publish = "sloane-frontend-package/build"
+  # Fix for "npm ruh build" typo - use explicit correct command
+  command = "npm run build"
 
 [build.environment]
   NODE_VERSION = "16"
