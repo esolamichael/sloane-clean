@@ -1,18 +1,19 @@
 [build]
-  base = "sloane-frontend-package"
-  publish = "sloane-frontend-package/build"
-  command = "cd sloane-frontend-package && npm install && npm run build"
+  base = ""
+  publish = "build"
+  command = "bash netlify/build.sh"
 
 [build.environment]
   NODE_VERSION = "16"
   NPM_CONFIG_LEGACY_PEER_DEPS = "true"
   CI = "false"
   # Note: We're removing REACT_APP_API_URL so the app uses relative URLs
-  # IMPORTANT: API keys should be set in Netlify environment variables, not here
+  # API key should be set in the Netlify dashboard
+  # REACT_APP_GOOGLE_MAPS_API_KEY = "YOUR_GOOGLE_MAPS_API_KEY_HERE"
 
 [[redirects]]
   from = "/api/*"
-  to = "https://fluted-mercury-455419-n0.uc.r.appspot.com/api/:splat"
+  to = "https://clean-code-app-1744825963.uc.r.appspot.com/api/:splat"
   status = 200
   force = true
 
