@@ -1,24 +1,12 @@
-# Core dependencies
-fastapi==0.104.1
-uvicorn==0.23.2
-gunicorn==21.2.0
-python-dotenv==1.0.0
-pydantic==1.10.12
-requests==2.31.0
-twilio==8.10.0
-
-# MongoDB
-pymongo==4.6.0
-motor==3.3.1
-
-# Authentication
-python-jose==3.3.0
-passlib==1.7.4
-
-# Google Cloud
-google-cloud-secret-manager==2.16.0
-
-# Utility
-email-validator==2.1.0
-python-multipart==0.0.6
-aiohttp==3.8.6
+fastapi>=0.95.0
+uvicorn>=0.21.0
+gunicorn>=21.0.0
+python-dotenv>=1.0.0
+pydantic<2.0.0
+requests>=2.28.0
+twilio>=8.0.0
+pymongo>=4.3.0
+motor>=3.1.0
+python-jose>=3.3.0
+passlib>=1.7.4
+google-cloud-secret-manager>=2.16.0
