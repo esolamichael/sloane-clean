@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Maps API Debug</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    pre { background: #f4f4f4; padding: 10px; border-radius: 5px; }
+    .success { color: green; }
+    .error { color: red; }
+    button { margin: 10px 0; padding: 8px 16px; }
+  </style>
+</head>
+<body>
+  <h1>Google Maps API Debug</h1>
+  
+  <div id="status">Loading Google Maps API...</div>
+  
+  <div id="apiStatus"></div>
+  
+  <h2>Test Places Autocomplete</h2>
+  <input type="text" id="placeInput" placeholder="Type a business name">
+  <button id="searchButton">Search</button>
+  
+  <h3>Results:</h3>
+  <pre id="results">Type a business name and click search</pre>
+  
+  <script>
+    // Setup debug log container
+    const apiStatus = document.getElementById('apiStatus');
+    const results = document.getElementById('results');
+    const status = document.getElementById('status');
+    
+    function log(message, isError = false) {
+      const div = document.createElement('div');
+      div.textContent = message;
+      div.className = isError ? 'error' : 'success';
+      apiStatus.appendChild(div);
+      console.log(message);
+    }
+    
+    // Initialize globals
+    let autocompleteService = null;
+    let sessionToken = null;
+    
+    // Callback when Maps API loads
+    window.initGoogleMapsAPI = function() {
+      status.textContent = "Google Maps API loaded";
+      status.className = "success";
+      
+      try {
+        // Check if Google is available
+        if (!window.google) {
+          log('Error: window.google is undefined', true);
+          return;
+        }
+        
+        // Check if Maps is available
+        if (!window.google.maps) {
+          log('Error: window.google.maps is undefined', true);
+          return;
+        }
+        
+        // Check if Places is available
+        if (!window.google.maps.places) {
+          log('Error: window.google.maps.places is undefined', true);
+          return;
+        }
+        
+        // Log available APIs
+        log('Available Google Maps APIs:');
+        log('Places API: ' + (!!window.google.maps.places ? 'Available' : 'Not available'));
+        log('PlacesService: ' + (!!window.google.maps.places.PlacesService ? 'Available' : 'Not available'));
+        log('AutocompleteService: ' + (!!window.google.maps.places.AutocompleteService ? 'Available' : 'Not available'));
+        
+        // Create services
+        try {
+          sessionToken = new window.google.maps.places.AutocompleteSessionToken();
+          log('Created AutocompleteSessionToken');
+        } catch (e) {
+          log('Error creating AutocompleteSessionToken: ' + e.message, true);
+        }
+        
+        try {
+          autocompleteService = new window.google.maps.places.AutocompleteService();
+          log('Created AutocompleteService');
+        } catch (e) {
+          log('Error creating AutocompleteService: ' + e.message, true);
+        }
+        
+      } catch (error) {
+        log('Error initializing Google Maps: ' + error.message, true);
+        status.textContent = "Error initializing Google Maps API";
+        status.className = "error";
+      }
+    };
+    
+    // Add event listener to search button
+    document.getElementById('searchButton').addEventListener('click', function() {
+      const input = document.getElementById('placeInput').value;
+      
+      if (!input) {
+        results.textContent = 'Please enter a business name';
+        return;
+      }
+      
+      if (!autocompleteService) {
+        results.textContent = 'AutocompleteService not available';
+        return;
+      }
+      
+      results.textContent = 'Searching for: ' + input + '...';
+      
+      const request = {
+        input: input,
+        types: ['establishment']
+      };
+      
+      // Add location bias for better results
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          function(position) {
+            request.locationBias = {
+              center: {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+              },
+              radius: 50000 // 50km radius
+            };
+            
+            performSearch(request);
+          },
+          function() {
+            // On error, search without location
+            performSearch(request);
+          }
+        );
+      } else {
+        // If geolocation not available
+        performSearch(request);
+      }
+    });
+    
+    function performSearch(request) {
+      // Add session token if available
+      if (sessionToken) {
+        request.sessionToken = sessionToken;
+      }
+      
+      autocompleteService.getPlacePredictions(
+        request,
+        function(predictions, status) {
+          if (status !== window.google.maps.places.PlacesServiceStatus.OK || !predictions) {
+            results.textContent = 'No results found. Status: ' + status;
+            return;
+          }
+          
+          const formattedResults = predictions.map(function(prediction, index) {
+            return (index + 1) + '. ' + prediction.description + ' (ID: ' + prediction.place_id + ')';
+          }).join('\n');
+          
+          results.textContent = formattedResults;
+        }
+      );
+    }
+  </script>
+  
+  <!-- Load Google Maps API dynamically -->
+  <script id="google-maps-script" async defer></script>
+  
+  <script>
+    // Fetch API key from Netlify function
+    fetch('/.netlify/functions/getGoogleApiKey')
+      .then(response => response.json())
+      .then(data => {
+        if (data.apiKey) {
+          const script = document.getElementById('google-maps-script');
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${data.apiKey}&libraries=places&callback=initGoogleMapsAPI`;
+        } else {
+          throw new Error('API key not found');
+        }
+      })
+      .catch(error => {
+        document.getElementById('status').textContent = 'Error loading Google Maps API: ' + error.message;
+        document.getElementById('status').className = 'error';
+      });
+  </script>
+</body>
+</html>

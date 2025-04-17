@@ -1,0 +1,8 @@
+# Proxy API requests to backend - this must be first
+/api/*  https://clean-code-app-1744825963.uc.r.appspot.com/api/:splat  200!
+
+# Frontend routing
+/signup    /onboarding    301!
+
+# SPA fallback - this must be last
+/*    /index.html   200
