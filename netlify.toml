@@ -2,6 +2,7 @@
   base = "sloane-frontend-package"
   publish = "build"
   command = "./netlify/build.sh"
+  # Trigger new build
 
 [build.environment]
   NODE_VERSION = "16"
