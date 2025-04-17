@@ -4,66 +4,46 @@
 
 The backend is deployed to Google App Engine. Follow these instructions:
 
-### Option 1: Interactive Deployment (Recommended for Local Development)
+### Simplified Deployment Using Google Cloud Shell (Recommended)
 
-1. Install Google Cloud SDK: https://cloud.google.com/sdk/docs/install
-   - If you already have the SDK in your project directory, initialize it with:
+1. Open Google Cloud Console: https://console.cloud.google.com/
+2. Make sure you're in the "Clean Code App" project
+3. Click the Cloud Shell icon (>_) in the top right corner
+4. In Cloud Shell, clone your repository:
    ```
-   ./google-cloud-sdk/install.sh --usage-reporting=false --path-update=true
+   git clone https://github.com/esolamichael/sloane-clean.git
+   cd sloane-clean
    ```
-   - Then restart your terminal/shell for the PATH changes to take effect
+5. Run the deployment script:
+   ```
+   bash deploy.sh
+   ```
+6. The application will be deployed to: https://clean-code-app-1744825963.uc.r.appspot.com
 
-2. Install the App Engine Python component:
-   ```
-   gcloud components install app-engine-python
-   ```
+### Manual Deployment Steps
 
-3. Login to your Google Cloud account:
-   ```
-   gcloud auth login
-   ```
-   - This will open a browser window for authentication
-   - If browser doesn't open, follow the URL displayed in your terminal
+If you prefer to deploy manually:
 
-4. Create a new project (if needed) or select an existing project:
+1. Open Google Cloud Console and launch Cloud Shell
+2. Clone your repository:
    ```
-   # Create a new project (optional)
-   gcloud projects create PROJECT_ID --name="PROJECT_NAME"
-   
-   # Set the project
-   gcloud config set project PROJECT_ID
+   git clone https://github.com/esolamichael/sloane-clean.git
+   cd sloane-clean
    ```
-
-5. Enable required APIs:
+3. Make sure the right APIs are enabled:
    ```
    gcloud services enable appengine.googleapis.com
    gcloud services enable cloudbuild.googleapis.com
-   gcloud services enable storage.googleapis.com
    gcloud services enable secretmanager.googleapis.com
    ```
-
-6. Create an App Engine application in your preferred region:
+4. Deploy to App Engine:
    ```
-   gcloud app create --region=us-central
+   gcloud app deploy app.yaml --quiet
    ```
-
-7. Update the app.yaml file with your new project endpoint URL:
+5. Check the logs to verify deployment:
    ```
-   # Update the API_HOST environment variable in app.yaml
-   API_HOST: "https://PROJECT_ID.uc.r.appspot.com"
+   gcloud app logs tail
    ```
-
-8. Create a .gcloudignore file to exclude unnecessary files:
-   ```
-   echo -e "# .gcloudignore file\n.git\n.gitignore\narchived/\ngoogle-cloud-sdk/\ndeployment-venv/\nvenv/\n__pycache__/\n*.pyc\n*.pyo\n.DS_Store" > .gcloudignore
-   ```
-
-9. Deploy the application:
-   ```
-   gcloud app deploy app.yaml --quiet --no-cache
-   ```
-
-10. The application will be deployed to: https://PROJECT_ID.uc.r.appspot.com
 
 ### Option 2: Service Account Authentication (Better for CI/CD)
 
