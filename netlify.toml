@@ -1,7 +1,7 @@
 [build]
   base = "sloane-frontend-package"
-  publish = "sloane-frontend-package/build"
-  command = "cd sloane-frontend-package && npm install && npm run build"
+  publish = "build"
+  command = "npm install && npm run build"
 
 [build.environment]
   NODE_VERSION = "16"

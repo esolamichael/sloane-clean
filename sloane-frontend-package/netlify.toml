@@ -1,7 +1,4 @@
-[build]
-  base = ""
-  publish = "build"
-  command = "bash netlify/build.sh"
+# This file is deprecated - using root netlify.toml instead
 
 [build.environment]
   NODE_VERSION = "16"
