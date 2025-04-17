@@ -1,5 +1,6 @@
 runtime: python39
 
+service: default
 entrypoint: gunicorn -b :$PORT minimal_app:app
 
 env_variables:
@@ -8,5 +9,6 @@ env_variables:
 instance_class: F1
 
 automatic_scaling:
-  min_instances: 1
-  max_instances: 2
+  min_instances: 0
+  max_instances: 1
+  target_cpu_utilization: 0.7

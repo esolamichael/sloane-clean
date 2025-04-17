@@ -4,9 +4,7 @@ entrypoint: gunicorn -b :$PORT main:app
 
 env_variables:
   API_HOST: "https://clean-code-app-1744825963.uc.r.appspot.com"
-  MONGODB_NAME: "sloane_ai_service" 
-  TWILIO_ACCOUNT_SID: "AC8cc057f196bec4492fd4a6e8da90aa8a"
-  TWILIO_PHONE_NUMBER: "+14245295093"
+  MONGODB_NAME: "sloane_ai_service"
   USE_SECRET_MANAGER: "true"
   GOOGLE_CLOUD_PROJECT: "clean-code-app-1744825963"
 

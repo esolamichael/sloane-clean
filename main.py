@@ -2,6 +2,16 @@ from flask import Flask, jsonify, request
 import os
 import logging
 import json
+import datetime
+import pandas as pd
+import pymongo
+from pymongo import MongoClient
+import requests
+from bs4 import BeautifulSoup
+import aiohttp
+import asyncio
+import numpy as np
+from google.cloud import secretmanager
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -10,43 +20,37 @@ logger = logging.getLogger(__name__)
 # Function to get secrets from Secret Manager
 def get_secret(secret_name):
     """Retrieve a secret from Google Cloud Secret Manager."""
+    # Map original secret names to the actual names in Secret Manager
+    secret_name_map = {
+        "MONGODB_URL": "mongodb-connection",
+        "GOOGLE_MAPS_API_KEY": "GOOGLE_MAPS_API_KEY",
+        "TWILIO_AUTH_TOKEN": "twilio-auth-token"
+    }
+    
+    # Use the mapped secret name if available
+    actual_secret_name = secret_name_map.get(secret_name, secret_name)
+    
     if os.environ.get('USE_SECRET_MANAGER', 'false').lower() == 'true':
         try:
-            from google.cloud import secretmanager
-            
-            # Try to get project ID from metadata server
-            project_id = None
-            try:
-                import requests
-                metadata_url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
-                project_id = requests.get(
-                    metadata_url, 
-                    headers={"Metadata-Flavor": "Google"}
-                ).text
-                logger.info(f"Retrieved project ID from metadata: {project_id}")
-            except Exception as e:
-                logger.warning(f"Could not get project ID from metadata server: {str(e)}")
-            
-            # If metadata doesn't work, try to get from App Engine environment
-            if not project_id:
-                project_id = os.environ.get('GOOGLE_CLOUD_PROJECT', 'clean-code-app-1744825963')
-                logger.info(f"Using project ID from environment: {project_id}")
+            # Always use the correct project ID
+            project_id = 'clean-code-app-1744825963'
+            logger.info(f"Using project ID: {project_id}")
                 
             # Create the Secret Manager client
             client = secretmanager.SecretManagerServiceClient()
             
             # Access the secret by name
-            secret_path = f"projects/{project_id}/secrets/{secret_name}/versions/latest"
+            secret_path = f"projects/{project_id}/secrets/{actual_secret_name}/versions/latest"
             
             logger.info(f"Attempting to access secret: {secret_path}")
             
             # Get the secret value
             response = client.access_secret_version(request={"name": secret_path})
             secret_value = response.payload.data.decode("UTF-8")
-            logger.info(f"Successfully retrieved secret: {secret_name}")
+            logger.info(f"Successfully retrieved secret: {actual_secret_name} for {secret_name}")
             return secret_value
         except Exception as e:
-            logger.error(f"Error accessing Secret Manager for {secret_name}: {str(e)}")
+            logger.error(f"Error accessing Secret Manager for {actual_secret_name} (original: {secret_name}): {str(e)}")
             return os.environ.get(secret_name)
     else:
         # In development, get from environment variable
@@ -57,11 +61,43 @@ def init_mongodb():
     """Initialize MongoDB connection using Secret Manager."""
     try:
         # Get MongoDB connection string from Secret Manager
-        mongodb_url = get_secret("MONGODB_URL")
+        logger.info("Retrieving MongoDB connection string from Secret Manager...")
+        
+        # Try to get the connection string from different secret names
+        mongodb_url = None
+        # Use only the correct secret name we created
+        secret_name = "mongodb-connection"
+        try:
+            logger.info(f"Trying to get MongoDB connection from secret: {secret_name}")
+            mongodb_url = get_secret(secret_name)
+            if mongodb_url:
+                logger.info(f"Successfully retrieved MongoDB connection from secret: {secret_name}")
+        except Exception as secret_err:
+            logger.warning(f"Failed to retrieve secret {secret_name}: {str(secret_err)}")
         
         if not mongodb_url:
-            logger.warning("Could not retrieve MongoDB URL from Secret Manager or environment variables")
-            mongodb_url = "mongodb://localhost:27017"  # Fallback for development
+            logger.warning("Could not retrieve MongoDB URL from any Secret Manager secrets")
+            
+            # Try environment variable as fallback
+            mongodb_url = os.environ.get("MONGODB_URL")
+            if mongodb_url:
+                logger.info("Using MongoDB URL from environment variable")
+            else:
+                # Last resort fallback for development only
+                logger.warning("Using localhost MongoDB URL as last resort fallback")
+                mongodb_url = "mongodb://localhost:27017"
+        
+        # Basic validation of the connection string format
+        if mongodb_url and ("mongodb://" in mongodb_url or "mongodb+srv://" in mongodb_url):
+            # Mask the connection string for logging (don't log credentials)
+            url_parts = mongodb_url.split('@')
+            if len(url_parts) > 1:
+                masked_url = f"...@{url_parts[1]}"
+                logger.info(f"MongoDB connection string format appears valid: {masked_url}")
+            else:
+                logger.info("MongoDB connection string format appears valid (but couldn't be masked)")
+        else:
+            logger.error(f"MongoDB connection string doesn't appear to be in the correct format")
         
         # Set as environment variable for database modules to use
         os.environ["MONGODB_URL"] = mongodb_url
@@ -70,9 +106,24 @@ def init_mongodb():
         db_name = os.environ.get("MONGODB_NAME", "sloane_ai_service")
         logger.info(f"MongoDB configured with database: {db_name}")
         
+        # Try to import and use the MongoDB client to verify connection
+        try:
+            logger.info("Testing MongoDB connection...")
+            from pymongo import MongoClient
+            client = MongoClient(mongodb_url, serverSelectionTimeoutMS=5000)
+            # Force a connection to verify
+            server_info = client.server_info()
+            logger.info(f"MongoDB connection test successful! Server version: {server_info.get('version')}")
+            client.close()
+        except Exception as conn_err:
+            logger.error(f"MongoDB connection test failed: {str(conn_err)}")
+            logger.warning("Application may have limited functionality due to MongoDB connection issues")
+            # Continue anyway - the app should handle failures gracefully
+        
         return True
     except Exception as e:
         logger.error(f"Error initializing MongoDB: {str(e)}")
+        logger.exception("Detailed exception info for MongoDB initialization:")
         return False
 
 # Initialize API keys
@@ -127,85 +178,6 @@ try:
 except Exception as e:
     logger.error(f"Error registering business routes: {str(e)}")
 
-# Add a direct GBP scraping endpoint to the main app if routes couldn't be registered
-if not business_routes_registered:
-    logger.info("Adding direct GBP scraper endpoint to main app")
-    
-    try:
-        from app.business.scrapers import GBPScraper
-        import asyncio
-        
-        @app.route('/api/business/scrape-gbp', methods=['POST'])
-        def scrape_gbp():
-            """Direct GBP scraper route on main app"""
-            try:
-                # Get request data
-                data = request.get_json()
-                business_name = data.get('business_name')
-                location = data.get('location')
-                
-                logger.info(f"GBP scraper request received for business: {business_name}")
-                
-                # Basic validation
-                if not business_name:
-                    logger.error("Business name is required but was not provided")
-                    return jsonify({
-                        "success": False,
-                        "error": "Business name is required"
-                    }), 400
-                
-                # Make sure the Google Maps API key is available
-                api_key = get_secret("GOOGLE_MAPS_API_KEY")
-                if not api_key:
-                    logger.error("Google Maps API key could not be retrieved from Secret Manager")
-                    return jsonify({
-                        "success": False,
-                        "error": "Google Maps API key not available",
-                        "details": "The API key for Google Places API could not be retrieved from Secret Manager."
-                    }), 500
-                
-                # Log successful API key retrieval (without revealing the key)
-                logger.info(f"Successfully retrieved Google Maps API key from Secret Manager (length: {len(api_key)})")
-                
-                # Make the API key available to the scraper via environment variable
-                os.environ["GOOGLE_MAPS_API_KEY"] = api_key
-                
-                # Use test business ID for simplicity
-                business_id = "test_business_id" 
-                
-                # Create scraper and run the scraping function
-                scraper = GBPScraper()
-                
-                # Use asyncio to run the async scraping function
-                logger.info(f"Starting GBP scraper for business: {business_name}")
-                result = asyncio.run(scraper.scrape_gbp(business_id, business_name, location))
-                
-                # Check for error in result
-                if isinstance(result, dict) and "error" in result:
-                    logger.warning(f"GBP scraper error: {result.get('error')}")
-                    return jsonify({
-                        "success": False, 
-                        "error": result.get("error"), 
-                        "details": result.get("details", ""),
-                        "business_name": result.get("business_name", business_name)
-                    })
-                
-                # Return successful response with data
-                logger.info(f"GBP scraping successful for: {business_name}")
-                return jsonify({"success": True, "data": result})
-            except Exception as e:
-                logger.error(f"Error in GBP scraping endpoint: {str(e)}")
-                logger.exception("Detailed traceback for GBP scraper error:")
-                return jsonify({
-                    "success": False,
-                    "error": str(e),
-                    "business_name": business_name if 'business_name' in locals() else None
-                })
-        
-        logger.info("Added direct GBP scraper endpoint to main app")
-    except Exception as e:
-        logger.error(f"Error adding direct GBP scraper endpoint: {str(e)}")
-
 # Initialize MongoDB and API keys before first request
 @app.before_request
 def before_each_request():
@@ -238,6 +210,47 @@ def maps_api_test():
         "status": "Maps API configured" if key_is_set else "Maps API not configured",
         "key_exists": key_is_set
     })
+
+# Add a GBP scraper test endpoint
+@app.route('/api/gbp/test')
+def gbp_test():
+    """Test endpoint to verify GBP scraper is working with a fixed business name"""
+    try:
+        # Import the GBP scraper
+        from app.business.scrapers import GBPScraper
+        
+        # Use test values
+        business_id = "test_business_id"
+        business_name = "Starbucks"
+        location = "San Francisco"
+        
+        # Create scraper and run it
+        scraper = GBPScraper()
+        
+        # Run the async function with asyncio
+        result = asyncio.run(scraper.scrape_gbp(business_id, business_name, location))
+        
+        # Check for error in result
+        if isinstance(result, dict) and "error" in result:
+            return jsonify({
+                "success": False, 
+                "error": result.get("error"), 
+                "details": result.get("details", "")
+            }), 500
+        
+        # Return success with first few fields from the data
+        return jsonify({
+            "success": True,
+            "business_name": result.get("name"),
+            "address": result.get("formatted_address"),
+            "website": result.get("website"),
+            "categories": result.get("categories", [])[:3]  # Return first 3 categories
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"GBP scraper error: {str(e)}"
+        }), 500
 
 if __name__ == '__main__':
     # Initialize in development mode
