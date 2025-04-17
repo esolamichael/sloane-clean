@@ -9,8 +9,14 @@ The backend is deployed to Google App Engine. Follow these instructions:
 1. Open Google Cloud Console: https://console.cloud.google.com/
 2. Make sure you're in the "Clean Code App" project
 3. Click the Cloud Shell icon (>_) in the top right corner
-4. In Cloud Shell, clone your repository:
+4. In Cloud Shell, update your repository:
    ```
+   # If repo already exists, just pull the latest changes
+   cd sloane-clean
+   git pull origin main
+   
+   # If you want to start fresh
+   rm -rf sloane-clean
    git clone https://github.com/esolamichael/sloane-clean.git
    cd sloane-clean
    ```
