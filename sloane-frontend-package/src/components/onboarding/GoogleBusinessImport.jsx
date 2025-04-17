@@ -29,7 +29,7 @@ const GoogleBusinessImport = ({ onDataImported }) => {
     setError(null);
     
     try {
-      const response = await api.get('/api/business/accounts');
+      const response = await api.get('/business/accounts');
       setAccounts(response.data.accounts || []);
     } catch (err) {
       setError('Failed to fetch business accounts. Please try again.');
@@ -45,7 +45,7 @@ const GoogleBusinessImport = ({ onDataImported }) => {
     setError(null);
     
     try {
-      const response = await api.get(`/api/business/locations?accountId=${accountId}`);
+      const response = await api.get(`/business/locations?accountId=${accountId}`);
       setLocations(response.data.locations || []);
     } catch (err) {
       setError('Failed to fetch business locations. Please try again.');
@@ -61,7 +61,7 @@ const GoogleBusinessImport = ({ onDataImported }) => {
     setError(null);
     
     try {
-      const response = await api.get(`/api/business/details?locationId=${locationId}`);
+      const response = await api.get(`/business/details?locationId=${locationId}`);
       setBusinessData(response.data.profile);
       
       // Pass data to parent component
@@ -90,7 +90,18 @@ const GoogleBusinessImport = ({ onDataImported }) => {
 
   // Start the authentication process
   const handleConnectGoogle = () => {
-    window.location.href = '/auth/google';
+    try {
+      // Check if Google Maps API is loaded properly before redirecting
+      if (!window.google || !window.google.maps) {
+        console.error("Google Maps API not loaded");
+        setError("Google Maps API not loaded. Please check your internet connection and try again.");
+        return;
+      }
+      window.location.href = '/auth/google';
+    } catch (err) {
+      console.error("Error in Google Business authentication:", err);
+      setError("Failed to connect to Google Business Profile. Please try again later.");
+    }
   };
 
   return (
