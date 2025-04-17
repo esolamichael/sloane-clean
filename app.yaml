@@ -1,6 +1,6 @@
 runtime: python39
 
-entrypoint: gunicorn main:app -k uvicorn.workers.UvicornWorker
+entrypoint: gunicorn main:app --workers 1
 
 env_variables:
   API_HOST: "https://clean-code-app-1744825963.uc.r.appspot.com"
@@ -9,7 +9,4 @@ env_variables:
   TWILIO_PHONE_NUMBER: "+14245295093"
   USE_SECRET_MANAGER: "false"
   GOOGLE_MAPS_API_KEY: "AIzaSyAVQNhMwjrnWGmwFZTQvVMBHgdB_IGdZt4"
-
-automatic_scaling:
-  max_instances: 3
 

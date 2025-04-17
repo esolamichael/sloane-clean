@@ -1,2 +1,21 @@
-!include:.gitignore
-!index.yaml
+# Python pycache:
+__pycache__/
+# Ignored by the build system
+/setup.cfg
+# virtualenv
+venv/
+deployment-venv/
+# Node modules
+node_modules/
+# Large directories
+.git/
+.github/
+google-cloud-sdk/
+# Frontend directories
+sloane-frontend-package/node_modules/
+sloane-frontend-package/build/
+# Archives
+*.tar.gz
+# Backup files
+*~
+*.DS_Store
