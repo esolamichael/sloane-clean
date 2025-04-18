@@ -22,6 +22,7 @@ cp app.yaml ${DEPLOY_TMP}/
 cp main.py ${DEPLOY_TMP}/
 cp requirements.txt ${DEPLOY_TMP}/
 cp -r app/business/scrapers.py ${DEPLOY_TMP}/app/business/
+cp -r app/business/analytics.py ${DEPLOY_TMP}/app/business/  # Added analytics.py
 cp -r app/api/routes/business_data.py ${DEPLOY_TMP}/app/api/routes/
 cp -r app/database/mongo.py ${DEPLOY_TMP}/app/database/
 cp -r app/database/mongo_db.py ${DEPLOY_TMP}/app/database/
