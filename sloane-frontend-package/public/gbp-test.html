@@ -73,7 +73,12 @@
         <input type="text" id="businessName" placeholder="Enter business name" value="Starbucks">
         <input type="text" id="location" placeholder="Enter location (optional)" value="San Francisco">
         <button id="testApi">Test API Health</button>
-        <button id="testGbp">Test GBP Scraper</button>
+        <button id="testGbp">Test GBP API</button>
+    </div>
+
+    <div class="input-group">
+        <button id="directFetch">Direct Fetch Test</button>
+        <button id="showRawResponse">Show Raw Response</button>
     </div>
     
     <div class="loading" id="loading">
@@ -91,8 +96,13 @@
             const locationInput = document.getElementById('location');
             const testApiButton = document.getElementById('testApi');
             const testGbpButton = document.getElementById('testGbp');
+            const directFetchButton = document.getElementById('directFetch');
+            const showRawResponseButton = document.getElementById('showRawResponse');
             const loadingElement = document.getElementById('loading');
             const resultsElement = document.getElementById('results');
+            
+            // Last raw response
+            let lastRawResponse = '';
             
             // Format JSON function
             function formatJSON(obj) {
@@ -109,6 +119,15 @@
                 loadingElement.style.display = 'none';
             }
             
+            // Show raw response
+            showRawResponseButton.addEventListener('click', function() {
+                if (lastRawResponse) {
+                    resultsElement.textContent = 'Raw Response Content:\n\n' + lastRawResponse;
+                } else {
+                    resultsElement.textContent = 'No raw response available yet. Run a test first.';
+                }
+            });
+            
             // Test the API health
             testApiButton.addEventListener('click', async function() {
                 showLoading();
@@ -116,18 +135,30 @@
                 
                 try {
                     console.log('Testing API health endpoint...');
+                    const startTime = new Date().getTime();
                     const response = await fetch('/api/health');
-                    console.log('Health response status:', response.status);
+                    const endTime = new Date().getTime();
+                    console.log(`Health response status: ${response.status} (${endTime - startTime}ms)`);
                     
-                    const data = await response.json();
-                    console.log('Health response data:', data);
+                    // Get the raw response
+                    const rawResponse = await response.text();
+                    lastRawResponse = rawResponse;
                     
-                    resultsElement.textContent = 'API Health Test Results:\n' + formatJSON(data);
-                    
-                    if (data.status === 'healthy') {
-                        resultsElement.textContent += '\n\n✅ API is healthy!';
-                    } else {
-                        resultsElement.textContent += '\n\n❌ API health check failed.';
+                    try {
+                        // Try to parse as JSON
+                        const data = JSON.parse(rawResponse);
+                        console.log('Health response data:', data);
+                        
+                        resultsElement.textContent = 'API Health Test Results:\n' + formatJSON(data);
+                        
+                        if (data.status === 'healthy') {
+                            resultsElement.textContent += '\n\n✅ API is healthy!';
+                        } else {
+                            resultsElement.textContent += '\n\n❌ API health check failed.';
+                        }
+                    } catch (parseError) {
+                        console.error('Error parsing health response as JSON:', parseError);
+                        resultsElement.textContent = 'Error: API returned non-JSON response:\n\n' + rawResponse;
                     }
                 } catch (error) {
                     console.error('Error testing API health:', error);
@@ -137,8 +168,49 @@
                 }
             });
             
-            // Test GBP Scraper
+            // Test GBP API directly
             testGbpButton.addEventListener('click', async function() {
+                showLoading();
+                resultsElement.textContent = 'Testing GBP API...';
+                
+                try {
+                    console.log('Testing GBP test endpoint...');
+                    const startTime = new Date().getTime();
+                    const response = await fetch('/api/gbp/test');
+                    const endTime = new Date().getTime();
+                    console.log(`GBP test response status: ${response.status} (${endTime - startTime}ms)`);
+                    
+                    // Get the raw response
+                    const rawResponse = await response.text();
+                    lastRawResponse = rawResponse;
+                    
+                    try {
+                        // Try to parse as JSON
+                        const data = JSON.parse(rawResponse);
+                        console.log('GBP test response data:', data);
+                        
+                        resultsElement.textContent = 'GBP Test Results:\n' + formatJSON(data);
+                        
+                        if (data.success === true) {
+                            resultsElement.textContent += '\n\n✅ GBP test successful!';
+                        } else {
+                            resultsElement.textContent += '\n\n❌ GBP test failed.';
+                        }
+                    } catch (parseError) {
+                        console.error('Error parsing GBP response as JSON:', parseError);
+                        resultsElement.textContent = 'Error: API returned non-JSON response:\n\n' + rawResponse.substring(0, 1000) + 
+                            (rawResponse.length > 1000 ? '...[truncated]' : '');
+                    }
+                } catch (error) {
+                    console.error('Error testing GBP API:', error);
+                    resultsElement.textContent = 'Error testing GBP API:\n' + error.message;
+                } finally {
+                    hideLoading();
+                }
+            });
+            
+            // Direct Fetch Test with more details
+            directFetchButton.addEventListener('click', async function() {
                 const businessName = businessNameInput.value.trim();
                 const location = locationInput.value.trim();
                 
@@ -148,54 +220,157 @@
                 }
                 
                 showLoading();
-                resultsElement.textContent = `Testing GBP scraper for: ${businessName} in ${location || 'any location'}`;
+                resultsElement.textContent = `Testing direct fetch for: ${businessName} in ${location || 'any location'}`;
                 
                 try {
-                    console.log(`Testing GBP scraper for: ${businessName} in ${location || 'any location'}`);
+                    // Create a results string to display all the information
+                    let resultsOutput = '';
                     
-                    // First test the health endpoint
-                    console.log('Testing API health first...');
-                    const healthResponse = await fetch('/api/health');
-                    if (!healthResponse.ok) {
-                        throw new Error(`API health check failed with status: ${healthResponse.status}`);
-                    }
-                    const healthData = await healthResponse.json();
-                    console.log('Health response:', healthData);
+                    // 1. Test with direct fetch to scrape-gbp
+                    resultsOutput += '1. TESTING DIRECT FETCH TO /api/business/scrape-gbp\n\n';
                     
-                    // Now test the GBP endpoint
-                    console.log('Testing GBP scraper endpoint...');
-                    const response = await fetch('/api/gbp/test');
-                    console.log('GBP test response status:', response.status);
+                    console.log(`Testing direct fetch for: ${businessName} in ${location || 'any location'}`);
                     
-                    const gbpTestData = await response.json();
-                    console.log('GBP test response data:', gbpTestData);
-                    
-                    // Now try the real scraper endpoint
-                    console.log('Testing real GBP scraper with data...');
-                    const scrapeResponse = await fetch('/api/business/scrape-gbp', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            business_name: businessName,
-                            location: location || undefined
-                        })
+                    const requestBody = JSON.stringify({
+                        business_name: businessName,
+                        location: location || undefined,
+                        _t: new Date().getTime()
                     });
-                    console.log('Scrape response status:', scrapeResponse.status);
                     
-                    const scrapeData = await scrapeResponse.json();
-                    console.log('Scrape response data:', scrapeData);
+                    resultsOutput += `Request URL: /api/business/scrape-gbp\n`;
+                    resultsOutput += `Request Method: POST\n`;
+                    resultsOutput += `Request Body: ${requestBody}\n\n`;
                     
-                    // Display all results
-                    resultsElement.textContent = 'GBP Scraper Test Results:\n\n';
-                    resultsElement.textContent += 'API Health:\n' + formatJSON(healthData) + '\n\n';
-                    resultsElement.textContent += 'GBP Test Endpoint:\n' + formatJSON(gbpTestData) + '\n\n';
-                    resultsElement.textContent += 'GBP Scraper Result:\n' + formatJSON(scrapeData);
+                    // Perform the request
+                    try {
+                        console.log('Sending POST request to /api/business/scrape-gbp');
+                        
+                        const startTime = new Date().getTime();
+                        const response = await fetch('/api/business/scrape-gbp', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'Cache-Control': 'no-cache'
+                            },
+                            body: requestBody
+                        });
+                        const endTime = new Date().getTime();
+                        
+                        console.log(`Response status: ${response.status} (${endTime - startTime}ms)`);
+                        
+                        // Get response headers
+                        const headers = {};
+                        response.headers.forEach((value, key) => {
+                            headers[key] = value;
+                        });
+                        
+                        resultsOutput += `Response Status: ${response.status} ${response.statusText}\n`;
+                        resultsOutput += `Response Time: ${endTime - startTime}ms\n`;
+                        resultsOutput += `Response Headers: ${JSON.stringify(headers, null, 2)}\n\n`;
+                        
+                        // Get the raw response
+                        const rawResponse = await response.text();
+                        lastRawResponse = rawResponse;
+                        
+                        resultsOutput += `Raw Response (first 300 chars):\n${rawResponse.substring(0, 300)}${rawResponse.length > 300 ? '...[truncated]' : ''}\n\n`;
+                        
+                        try {
+                            // Try to parse as JSON
+                            const data = JSON.parse(rawResponse);
+                            console.log('Response data:', data);
+                            
+                            resultsOutput += `Parsed JSON Response:\n${formatJSON(data)}\n\n`;
+                            
+                            if (data.success === true || data.data) {
+                                resultsOutput += '✅ Request successful!\n';
+                            } else {
+                                resultsOutput += '❌ Request returned error.\n';
+                            }
+                        } catch (parseError) {
+                            console.error('Error parsing response as JSON:', parseError);
+                            resultsOutput += `❌ Error parsing response as JSON: ${parseError.message}\n`;
+                            resultsOutput += 'Response is not valid JSON.\n\n';
+                            
+                            // Try to determine if it's an HTML response
+                            if (rawResponse.startsWith('<!DOCTYPE') || rawResponse.startsWith('<html')) {
+                                resultsOutput += '⚠️ Response appears to be HTML, not JSON. This indicates a routing issue or server error.\n';
+                            }
+                        }
+                    } catch (fetchError) {
+                        console.error('Fetch error:', fetchError);
+                        resultsOutput += `❌ Fetch error: ${fetchError.message}\n\n`;
+                    }
+                    
+                    // 2. Try with different URL format
+                    resultsOutput += '\n2. TESTING WITH ABSOLUTE URL TO APP ENGINE\n\n';
+                    
+                    try {
+                        // Use App Engine URL directly
+                        const appEngineUrl = 'https://clean-code-app-1744825963.uc.r.appspot.com/api/business/scrape-gbp';
+                        
+                        resultsOutput += `Request URL: ${appEngineUrl}\n`;
+                        resultsOutput += `Request Method: POST\n`;
+                        resultsOutput += `Request Body: ${requestBody}\n\n`;
+                        
+                        console.log(`Trying with direct App Engine URL: ${appEngineUrl}`);
+                        
+                        const startTime = new Date().getTime();
+                        const response = await fetch(appEngineUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'Cache-Control': 'no-cache'
+                            },
+                            body: requestBody
+                        });
+                        const endTime = new Date().getTime();
+                        
+                        console.log(`Response status: ${response.status} (${endTime - startTime}ms)`);
+                        
+                        // Get response headers
+                        const headers = {};
+                        response.headers.forEach((value, key) => {
+                            headers[key] = value;
+                        });
+                        
+                        resultsOutput += `Response Status: ${response.status} ${response.statusText}\n`;
+                        resultsOutput += `Response Time: ${endTime - startTime}ms\n`;
+                        resultsOutput += `Response Headers: ${JSON.stringify(headers, null, 2)}\n\n`;
+                        
+                        // Get the raw response
+                        const rawResponse = await response.text();
+                        
+                        resultsOutput += `Raw Response (first 300 chars):\n${rawResponse.substring(0, 300)}${rawResponse.length > 300 ? '...[truncated]' : ''}\n\n`;
+                        
+                        try {
+                            // Try to parse as JSON
+                            const data = JSON.parse(rawResponse);
+                            console.log('Direct App Engine response data:', data);
+                            
+                            resultsOutput += `Parsed JSON Response:\n${formatJSON(data)}\n\n`;
+                            
+                            if (data.success === true || data.data) {
+                                resultsOutput += '✅ Direct App Engine request successful!\n';
+                            } else {
+                                resultsOutput += '❌ Direct App Engine request returned error.\n';
+                            }
+                        } catch (parseError) {
+                            console.error('Error parsing direct App Engine response as JSON:', parseError);
+                            resultsOutput += `❌ Error parsing response as JSON: ${parseError.message}\n`;
+                        }
+                    } catch (directError) {
+                        console.error('Direct App Engine fetch error:', directError);
+                        resultsOutput += `❌ Direct App Engine fetch error: ${directError.message}\n\n`;
+                    }
+                    
+                    // Display the results
+                    resultsElement.textContent = resultsOutput;
+                    
                 } catch (error) {
-                    console.error('Error testing GBP scraper:', error);
-                    resultsElement.textContent = 'Error testing GBP scraper:\n' + error.message;
+                    console.error('Overall test error:', error);
+                    resultsElement.textContent = `Error in test execution: ${error.message}`;
                 } finally {
                     hideLoading();
                 }
