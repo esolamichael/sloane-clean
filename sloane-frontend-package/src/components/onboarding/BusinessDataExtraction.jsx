@@ -122,65 +122,115 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
               throw new Error('Please enter a valid business name');
             }
             
-            // Check if API is available first
-            const healthCheck = await fetch('/api/health', {
-              // Add cache-busting parameter
-              headers: {
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
-              },
-              cache: 'no-store'
-            });
+            console.log('Business name validated:', url);
             
-            if (!healthCheck.ok) {
-              console.error('Backend API health check failed:', await healthCheck.text());
-              throw new Error('Backend API is not available. Please contact support.');
-            }
-            
-            console.log('Backend API health check passed');
-            
-            // Now proceed with scraping - ensure we're using the real API
-            console.log('Making real API call to scrape GBP with business name:', url);
-            
-            // Call the backend API endpoint that uses Secret Manager for the API key
-            result = await businessApi.scrapeGBP(url);
-            console.log('GBP scraper raw response:', result);
-            
-            // Detailed validation and error handling
-            if (!result) {
-              console.error('No data returned from GBP scraper');
-              throw new Error('The backend API returned an empty response. Please try again.');
-            }
-            
-            if (result.success === false) {
-              console.error('GBP scraper returned error:', result.error);
+            // Use direct API call with minimal error handling to see if we can get any response
+            try {
+              console.log('Making direct API call to scrape GBP with business name:', url);
               
-              let errorMessage = result.error || 'Unknown error from Google Business Profile scraper';
-              if (result.details) {
-                errorMessage += `: ${result.details}`;
+              // Call the backend API endpoint that uses Secret Manager for the API key
+              result = await businessApi.scrapeGBP(url);
+              console.log('GBP scraper response received:', result);
+              
+              // Detailed validation and error handling
+              if (!result) {
+                console.error('No data returned from GBP scraper');
+                throw new Error('The backend API returned an empty response. Please try again.');
               }
               
-              throw new Error(errorMessage);
+              if (result.success === false) {
+                console.error('GBP scraper returned error:', result.error);
+                
+                let errorMessage = result.error || 'Unknown error from Google Business Profile scraper';
+                if (result.details) {
+                  errorMessage += `: ${result.details}`;
+                }
+                
+                throw new Error(errorMessage);
+              }
+              
+              // Handle possible response format variations
+              if (!result.data) {
+                console.warn('Response missing data property - checking for alternative structure:', result);
+                
+                // Try to use results property if it exists
+                if (result.results) {
+                  console.log('Using results property from response');
+                  result.data = result.results;
+                } else {
+                  // If the result itself looks like business data, use it directly
+                  if (result.name || result.business_name) {
+                    console.log('Response appears to be direct business data, using it as-is');
+                    result.data = result;
+                  } else {
+                    console.error('Invalid response structure:', result);
+                    throw new Error('The backend returned an invalid data structure. Please try again.');
+                  }
+                }
+              }
+              
+              // Check if the data object contains essential business information
+              let hasValidData = false;
+              
+              if (result.data) {
+                hasValidData = (
+                  (result.data.name && (result.data.formatted_address || result.data.address)) || 
+                  (result.data.business_name && result.data.address)
+                );
+              }
+              
+              if (!hasValidData) {
+                console.error('GBP data is missing essential business information:', result.data);
+                throw new Error('Could not find essential business information. Please try a different business name.');
+              }
+              
+              extractedBusiness = result.data;
+              console.log('Successfully extracted business data from GBP:', extractedBusiness);
+              
+            } catch (apiError) {
+              console.error('Error during API call:', apiError);
+              
+              // Try direct fetch as fallback
+              try {
+                console.log('API call failed, trying direct fetch as fallback');
+                
+                // Try direct fetch to /api/business/scrape-gbp
+                const response = await fetch('/api/business/scrape-gbp', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    business_name: url,
+                    location: 'San Francisco'
+                  })
+                });
+                
+                console.log('Direct fetch response status:', response.status);
+                
+                if (!response.ok) {
+                  console.error('Direct fetch failed with status:', response.status);
+                  throw new Error(`Direct API call failed with status ${response.status}`);
+                }
+                
+                const responseData = await response.json();
+                console.log('Direct fetch response data:', responseData);
+                
+                if (responseData.data) {
+                  extractedBusiness = responseData.data;
+                  console.log('Successfully extracted business data from direct fetch:', extractedBusiness);
+                } else if (responseData.results) {
+                  extractedBusiness = responseData.results;
+                  console.log('Successfully extracted business data from direct fetch results:', extractedBusiness);
+                } else {
+                  console.error('Direct fetch response has invalid structure:', responseData);
+                  throw new Error('Could not extract business data from API response');
+                }
+              } catch (directError) {
+                console.error('Direct fetch also failed:', directError);
+                throw apiError; // Re-throw the original error
+              }
             }
-            
-            if (!result.data) {
-              console.error('Invalid response structure - missing data property:', result);
-              throw new Error('The backend returned an invalid data structure. Please try again.');
-            }
-            
-            // Check if the data object contains essential business information
-            const hasValidData = result.data && (
-              (result.data.name && result.data.formatted_address) || 
-              (result.data.business_name && result.data.address)
-            );
-            
-            if (!hasValidData) {
-              console.error('GBP data is missing essential business information:', result.data);
-              throw new Error('Could not find essential business information. Please try a different business name.');
-            }
-            
-            extractedBusiness = result.data;
-            console.log('Successfully extracted business data from GBP:', extractedBusiness);
             
             // Set success state for the metadata step
             setCompletedSteps(prev => ({

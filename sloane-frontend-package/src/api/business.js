@@ -327,10 +327,8 @@ const businessApi = {
         throw new Error('No business name provided');
       }
       
-      // Add business_id header for authorization
-      const headers = {
-        'X-Business-ID': 'test_business_id'
-      };
+      // Simplify request - use minimal headers for compatibility with all servers
+      console.log('Using simplified fetch request for better compatibility');
       
       // Get API URL from the environment or use default
       let apiBaseUrl = '';
@@ -340,8 +338,8 @@ const businessApi = {
         apiBaseUrl = 'http://localhost:8000/api';
         console.log('Using local API for scraping GBP:', apiBaseUrl);
       } else {
-        // For production, use relative URL or App Engine URL depending on deployment
-        apiBaseUrl = '/api'; // Use relative URL for Netlify -> App Engine proxy
+        // For production, use relative URL for Netlify -> App Engine proxy
+        apiBaseUrl = '/api';
         console.log('Using production API for scraping GBP:', apiBaseUrl);
       }
       
@@ -351,42 +349,48 @@ const businessApi = {
       // Add timestamp to avoid caching
       const timestamp = new Date().getTime();
       
-      // Use direct fetch with proper CORS settings and timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
+      // Create request body
+      const requestBody = {
+        business_name: businessName,
+        location: location || "San Francisco", // Provide default location if none
+        _t: timestamp // Add timestamp to avoid caching
+      };
       
+      console.log('Request body:', requestBody);
+      
+      // Use simpler fetch with fewer customizations - more like the successful test page
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...headers,
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
+          'Accept': 'application/json'
         },
-        body: JSON.stringify({ 
-          business_name: businessName, 
-          location,
-          _t: timestamp // Add timestamp to avoid caching
-        }),
-        mode: 'cors',
-        credentials: 'omit',
-        signal: controller.signal
+        body: JSON.stringify(requestBody)
       });
-      
-      clearTimeout(timeoutId);
       
       console.log('Received response:', {
         status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries([...response.headers])
+        statusText: response.statusText
       });
       
-      // Always parse the response even if not ok
-      const data = await response.json();
-      console.log('Scrape GBP response data:', data);
+      // Get raw text first so we can debug if JSON parsing fails
+      const responseText = await response.text();
+      console.log('Raw response length:', responseText.length);
       
-      // Handle 200 response with error field
+      let data;
+      try {
+        // Try to parse as JSON
+        data = JSON.parse(responseText);
+        console.log('Scrape GBP response parsed successfully');
+      } catch (parseError) {
+        console.error('Failed to parse response as JSON:', parseError);
+        console.error('Raw response preview:', responseText.substring(0, 500));
+        throw new Error('Invalid JSON response from server');
+      }
+      
+      console.log('Parsed response data:', data);
+      
+      // Handle response with error field
       if (data && data.success === false) {
         console.error('API returned error message:', data.error);
         throw new Error(data.error || 'API error occurred when scraping GBP data');
@@ -394,8 +398,18 @@ const businessApi = {
       
       // Handle HTTP errors
       if (!response.ok) {
-        console.error(`HTTP error! Status: ${response.status}, Response:`, data);
+        console.error(`HTTP error! Status: ${response.status}`);
         throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      // Success case - ensure data is properly formatted
+      if (!data.data && data.results) {
+        // Handle possible alternative response format
+        console.log('Converting alternative response format with results property');
+        return {
+          success: true,
+          data: data.results
+        };
       }
       
       return data;
