@@ -22,28 +22,36 @@ def get_mongo_client():
             mongodb_url = get_secret("MONGODB_URL")
             if not mongodb_url:
                 logger.error("Failed to get MongoDB connection string")
-                return None
+                raise ConnectionError("Could not retrieve MongoDB connection string")
                 
-            _mongo_client = MongoClient(mongodb_url, serverSelectionTimeoutMS=5000)
-            return _mongo_client
+            _mongo_client = MongoClient(
+                mongodb_url, 
+                serverSelectionTimeoutMS=5000,
+                connectTimeoutMS=5000,
+                socketTimeoutMS=5000,
+                retryWrites=True
+            )
+            # Test connection to fail fast if there's an issue
+            _mongo_client.server_info()
+            logger.info("MongoDB client connection successful")
         except Exception as e:
             logger.error(f"Error creating MongoDB client: {str(e)}")
-            return None
+            raise
     return _mongo_client
 
 def get_database():
     """Get MongoDB database instance."""
     try:
         client = get_mongo_client()
-        if not client:
-            logger.error("No MongoDB client available")
-            return DummyDB()
-            
         db_name = os.environ.get("MONGODB_NAME", "sloane_ai_service")
-        return client[db_name]
+        db = client[db_name]
+        # Perform a quick operation to verify database connection
+        db.command('ping')
+        logger.info(f"Successfully connected to MongoDB database: {db_name}")
+        return db
     except Exception as e:
         logger.error(f"Error getting database: {str(e)}")
-        return DummyDB()
+        raise
 
 def close_mongo_connection():
     """Close MongoDB connection."""

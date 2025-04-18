@@ -16,18 +16,21 @@ logger = logging.getLogger(__name__)
 # Project ID constant
 PROJECT_ID = "clean-code-app-1744825963"
 
-def get_secret(secret_id: str, project_id: str = PROJECT_ID) -> str:
+def get_secret(secret_id: str) -> Optional[str]:
     """
     Get a secret from Google Cloud Secret Manager.
     
     Args:
         secret_id: The ID of the secret to retrieve
-        project_id: The GCP project ID (defaults to clean-code-app-1744825963)
         
     Returns:
-        The secret value as a string
+        The secret value as a string, or None if not found
     """
     try:
+        # Always use the correct project ID
+        project_id = PROJECT_ID
+        logger.info(f"Using project ID: {project_id}")
+        
         # Create the Secret Manager client
         client = secretmanager.SecretManagerServiceClient()
         
@@ -40,15 +43,9 @@ def get_secret(secret_id: str, project_id: str = PROJECT_ID) -> str:
         # Return the decoded payload
         return response.payload.data.decode("UTF-8")
         
-    except exceptions.PermissionDenied:
-        logger.error(f"Permission denied when accessing secret {secret_id}")
-        raise
-    except exceptions.NotFound:
-        logger.error(f"Secret {secret_id} not found in project {project_id}")
-        raise
     except Exception as e:
         logger.error(f"Error accessing secret {secret_id}: {str(e)}")
-        raise
+        return None
 
 
 def get_service_account_credentials(project_id: str, secret_id: str = "app-service-account-key") -> Dict[str, Any]:
@@ -64,7 +61,7 @@ def get_service_account_credentials(project_id: str, secret_id: str = "app-servi
     """
     try:
         # Get the secret payload
-        secret_payload = get_secret(secret_id, project_id)
+        secret_payload = get_secret(secret_id)
         
         # Parse the JSON payload
         credentials = json.loads(secret_payload)
@@ -86,13 +83,13 @@ def get_mongodb_connection_string(project_id: str = PROJECT_ID) -> str:
         The MongoDB connection string
     """
     try:
-        return get_secret("mongodb-connection", project_id)
+        return get_secret("MONGODB_URL")
     except Exception as e:
         logger.error(f"Error getting MongoDB connection string: {e}")
         raise
 
 
-def get_twilio_auth_token(project_id: str, secret_id: str = "twilio-auth-token") -> str:
+def get_twilio_auth_token(project_id: str, secret_id: str = "TWILIO_AUTH_TOKEN") -> str:
     """
     Get Twilio auth token from Secret Manager.
     
@@ -104,7 +101,7 @@ def get_twilio_auth_token(project_id: str, secret_id: str = "twilio-auth-token")
         The Twilio auth token
     """
     try:
-        return get_secret(secret_id, project_id)
+        return get_secret(secret_id)
     except Exception as e:
         print(f"Error getting Twilio auth token: {e}")
         # Return empty string if error
@@ -113,24 +110,13 @@ def get_twilio_auth_token(project_id: str, secret_id: str = "twilio-auth-token")
 
 def get_project_id() -> str:
     """
-    Get the GCP project ID from environment variable or App Engine environment.
+    Get the GCP project ID.
     
     Returns:
         The project ID as a string
     """
-    # First try to get from environment variable
-    project_id = os.environ.get('GCP_PROJECT')
-    
-    # If not set, try to get from App Engine environment
-    if not project_id:
-        # On App Engine, project ID is available in the environment
-        project_id = os.environ.get('GOOGLE_CLOUD_PROJECT')
-    
-    # If still not found, use the one from your configuration
-    if not project_id:
-        project_id = PROJECT_ID
-    
-    return project_id
+    # Always use the correct project ID
+    return PROJECT_ID
 
 
 def should_use_secret_manager() -> bool:

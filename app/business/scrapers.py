@@ -10,6 +10,9 @@ from ..repositories.business_repository import BusinessRepository
 from ..repositories.training_repository import TrainingRepository
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 from ..utils.secrets import get_secret
+import os
+import pandas as pd
+from typing import Optional, Dict, Any
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -25,7 +28,7 @@ class WebsiteScraper:
             logger.error(f"Failed to initialize repositories: {str(e)}")
             raise
         
-    async def scrape_website(self, business_id, url):
+    def scrape_website(self, business_id, url):
         """
         Scrape a business website to extract useful information
         
@@ -70,11 +73,11 @@ class WebsiteScraper:
             }
             
             # Store in MongoDB through the repository
-            await self.business_repo.save_website_data(business_id, extracted_data)
+            self.business_repo.save_website_data(business_id, extracted_data)
             
             # Also save relevant parts to the training repository
             training_data = self._prepare_training_data(extracted_data)
-            await self.training_repo.save_training_data(business_id, training_data)
+            self.training_repo.save_training_data(business_id, training_data)
             
             logger.info(f"Successfully scraped website for business_id: {business_id}")
             return extracted_data
@@ -369,42 +372,153 @@ class GBPScraper:
     """Class for scraping Google Business Profile data"""
     
     def __init__(self):
-        self.api_key = None
+        self.api_key = self._get_api_key()
         
-    def _get_api_key(self):
-        """Get the Google Maps API key from Secret Manager or environment."""
-        if self.api_key:
-            return self.api_key
-            
+    def _get_api_key(self) -> str:
+        """Get Google Maps API key from Secret Manager or environment variable."""
         try:
-            # Try to get from Secret Manager or environment
-            self.api_key = get_secret("GOOGLE_MAPS_API_KEY")
-            
-            if not self.api_key:
-                logger.error("Failed to get Google Maps API key")
-                return None
+            # Try to get API key from Secret Manager first
+            api_key = get_secret("GOOGLE_MAPS_API_KEY")
+            if api_key:
+                logger.info("Successfully retrieved Google Maps API key from Secret Manager")
+                return api_key
                 
-            logger.info("Successfully retrieved API key")
-            return self.api_key
+            # Fall back to environment variable
+            api_key = os.getenv("GOOGLE_MAPS_API_KEY")
+            if api_key:
+                logger.info("Using Google Maps API key from environment variable")
+                return api_key
+                
+            logger.error("No Google Maps API key found in Secret Manager or environment variables")
+            raise ValueError("Google Maps API key not found. Make sure it's set in the Secret Manager or environment variables.")
             
         except Exception as e:
-            logger.error(f"Error getting API key: {str(e)}")
-            return None
+            logger.error(f"Error getting Google Maps API key: {str(e)}")
+            raise ValueError(f"Failed to retrieve Google Maps API key: {str(e)}")
             
-    def scrape_gbp(self, business_id, business_name, location=None):
-        """Scrape business data from Google Business Profile."""
+    def scrape_gbp(self, business_id: str, business_name: str, location: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Scrape business data from Google Business Profile using Places API.
+        
+        Args:
+            business_id: The ID of the business in our database
+            business_name: Name of the business to search for
+            location: Optional location to narrow down the search
+            
+        Returns:
+            Dict containing the scraped data or error information
+        """
         try:
-            # Get API key
-            api_key = self._get_api_key()
-            if not api_key:
+            # The API key is already validated in the constructor
+            api_key = self.api_key
+            
+            # Construct search query
+            search_query = business_name
+            if location:
+                search_query = f"{business_name} {location}"
+            search_query = requests.utils.quote(search_query)
+            
+            # First, search for the business
+            places_url = f"https://maps.googleapis.com/maps/api/place/textsearch/json?query={search_query}&key={api_key}"
+            logger.info(f"Searching for business: {business_name}")
+            
+            response = requests.get(places_url, timeout=10)
+            response.raise_for_status()
+            search_data = response.json()
+            
+            if search_data.get('status') != 'OK':
+                error_msg = f"Places API error: {search_data.get('status')}"
+                details = search_data.get('error_message', '')
+                logger.error(f"{error_msg} - {details}")
                 return {
                     "success": False,
-                    "error": "Failed to get API key"
+                    "error": error_msg,
+                    "details": details
                 }
-                
-            # Rest of the scraping logic...
-            # ... existing code ...
             
+            if not search_data.get('results'):
+                logger.error("No results found for the business")
+                return {
+                    "success": False,
+                    "error": "No results found for the business"
+                }
+            
+            # Get the first result (most relevant)
+            place = search_data['results'][0]
+            place_id = place['place_id']
+            
+            # Get detailed information about the place
+            fields = [
+                "name",
+                "formatted_address",
+                "formatted_phone_number",
+                "website",
+                "rating",
+                "user_ratings_total",
+                "types",
+                "opening_hours",
+                "reviews",
+                "photos"
+            ]
+            
+            details_url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields={','.join(fields)}&key={api_key}"
+            logger.info(f"Getting details for place_id: {place_id}")
+            
+            response = requests.get(details_url, timeout=10)
+            response.raise_for_status()
+            details_data = response.json()
+            
+            if details_data.get('status') != 'OK':
+                error_msg = f"Places API error: {details_data.get('status')}"
+                details = details_data.get('error_message', '')
+                logger.error(f"{error_msg} - {details}")
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "details": details
+                }
+            
+            result = details_data['result']
+            
+            # Process photos if available
+            photos = []
+            if result.get('photos'):
+                for photo in result['photos'][:5]:  # Limit to 5 photos
+                    photo_url = f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference={photo['photo_reference']}&key={api_key}"
+                    photos.append({
+                        'url': photo_url,
+                        'height': photo['height'],
+                        'width': photo['width']
+                    })
+            
+            # Construct the final response
+            business_data = {
+                'business_id': business_id,
+                'name': result.get('name'),
+                'address': result.get('formatted_address'),
+                'phone': result.get('formatted_phone_number'),
+                'website': result.get('website'),
+                'rating': result.get('rating'),
+                'total_ratings': result.get('user_ratings_total'),
+                'types': result.get('types', []),
+                'opening_hours': result.get('opening_hours', {}).get('periods', []),
+                'reviews': result.get('reviews', []),
+                'photos': photos
+            }
+            
+            logger.info(f"Successfully scraped GBP data for {business_name}")
+            return {
+                "success": True,
+                "data": business_data
+            }
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request error while scraping GBP: {str(e)}")
+            return {
+                "success": False,
+                "error": "Failed to connect to Google Places API",
+                "details": str(e)
+            }
         except Exception as e:
             logger.error(f"Error scraping GBP: {str(e)}")
             return {

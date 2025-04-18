@@ -3,9 +3,14 @@ Centralized configuration for secrets management.
 """
 
 import os
+import logging
 from typing import Dict, Optional
 
-# Project ID
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Project ID constant
 PROJECT_ID = "clean-code-app-1744825963"
 
 # Secret name mappings
@@ -23,6 +28,17 @@ ENV_FALLBACKS = {
     "GOOGLE_MAPS_API_KEY": "GOOGLE_MAPS_API_KEY",
     "OPENAI_API_KEY": "OPENAI_API_KEY"
 }
+
+def get_project_id() -> str:
+    """
+    Get the GCP project ID.
+    
+    Returns:
+        The project ID as a string
+    """
+    # Always use the correct project ID
+    logger.info(f"Using project ID: {PROJECT_ID}")
+    return PROJECT_ID
 
 def get_secret_name(env_name: str) -> Optional[str]:
     """Get the Secret Manager name for an environment variable."""

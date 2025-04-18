@@ -8,27 +8,24 @@ import pymongo
 from pymongo import MongoClient
 import requests
 from bs4 import BeautifulSoup
-import aiohttp
-import asyncio
-import numpy as np
 from google.cloud import secretmanager
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Secret name mapping
+SECRET_NAME_MAP = {
+    "MONGODB_URL": "MONGODB_URL",
+    "GOOGLE_MAPS_API_KEY": "GOOGLE_MAPS_API_KEY",
+    "TWILIO_AUTH_TOKEN": "TWILIO_AUTH_TOKEN"
+}
+
 # Function to get secrets from Secret Manager
 def get_secret(secret_name):
     """Retrieve a secret from Google Cloud Secret Manager."""
-    # Map original secret names to the actual names in Secret Manager
-    secret_name_map = {
-        "MONGODB_URL": "mongodb-connection",
-        "GOOGLE_MAPS_API_KEY": "GOOGLE_MAPS_API_KEY",
-        "TWILIO_AUTH_TOKEN": "twilio-auth-token"
-    }
-    
     # Use the mapped secret name if available
-    actual_secret_name = secret_name_map.get(secret_name, secret_name)
+    actual_secret_name = SECRET_NAME_MAP.get(secret_name, secret_name)
     
     if os.environ.get('USE_SECRET_MANAGER', 'false').lower() == 'true':
         try:
@@ -58,22 +55,11 @@ def get_secret(secret_name):
 
 # Initialize MongoDB connection
 def init_mongodb():
-    """Initialize MongoDB connection using Secret Manager."""
+    """Initialize MongoDB connection."""
     try:
-        # Get MongoDB connection string from Secret Manager
-        logger.info("Retrieving MongoDB connection string from Secret Manager...")
-        
-        # Try to get the connection string from different secret names
-        mongodb_url = None
-        # Use only the correct secret name we created
-        secret_name = "mongodb-connection"
-        try:
-            logger.info(f"Trying to get MongoDB connection from secret: {secret_name}")
-            mongodb_url = get_secret(secret_name)
-            if mongodb_url:
-                logger.info(f"Successfully retrieved MongoDB connection from secret: {secret_name}")
-        except Exception as secret_err:
-            logger.warning(f"Failed to retrieve secret {secret_name}: {str(secret_err)}")
+        # Get MongoDB URL from Secret Manager
+        secret_name = "MONGODB_URL"
+        mongodb_url = get_secret(secret_name)
         
         if not mongodb_url:
             logger.warning("Could not retrieve MongoDB URL from any Secret Manager secrets")
@@ -214,42 +200,55 @@ def maps_api_test():
 # Add a GBP scraper test endpoint
 @app.route('/api/gbp/test')
 def gbp_test():
-    """Test endpoint to verify GBP scraper is working with a fixed business name"""
+    """Test endpoint to verify GBP scraper is working"""
     try:
-        # Import the GBP scraper
         from app.business.scrapers import GBPScraper
         
-        # Use test values
-        business_id = "test_business_id"
-        business_name = "Starbucks"
-        location = "San Francisco"
+        # First check if the Google Maps API key is accessible
+        api_key = os.environ.get('GOOGLE_MAPS_API_KEY')
+        from app.utils.secrets import get_secret
+        secret_key = get_secret("GOOGLE_MAPS_API_KEY")
         
-        # Create scraper and run it
+        # Log information about the API key availability
+        logger.info(f"API Key in environment: {'Yes' if api_key else 'No'}")
+        logger.info(f"API Key in Secret Manager: {'Yes' if secret_key else 'No'}")
+        
+        # Create a scraper instance
         scraper = GBPScraper()
         
-        # Run the async function with asyncio
-        result = asyncio.run(scraper.scrape_gbp(business_id, business_name, location))
+        # Log information about the scraper's API key
+        logger.info(f"Scraper API key available: {'Yes' if scraper.api_key else 'No'}")
         
-        # Check for error in result
-        if isinstance(result, dict) and "error" in result:
-            return jsonify({
-                "success": False, 
-                "error": result.get("error"), 
-                "details": result.get("details", "")
-            }), 500
+        # Test the scraper with a known business
+        result = scraper.scrape_gbp("test_business_id", "Starbucks", "San Francisco")
         
-        # Return success with first few fields from the data
+        # Add some diagnostic information to the response
+        if not result.get("success", False):
+            result["diagnostics"] = {
+                "env_api_key_available": bool(api_key),
+                "secret_manager_key_available": bool(secret_key),
+                "scraper_key_available": bool(scraper.api_key)
+            }
+            
+        return jsonify(result)
+    except ValueError as e:
+        # API key related errors
+        logger.error(f"API key error in GBP scraper test: {str(e)}")
         return jsonify({
-            "success": True,
-            "business_name": result.get("name"),
-            "address": result.get("formatted_address"),
-            "website": result.get("website"),
-            "categories": result.get("categories", [])[:3]  # Return first 3 categories
-        })
+            "status": "error",
+            "error": "Google Maps API key not properly configured",
+            "details": str(e),
+            "diagnostics": {
+                "env_api_key_available": bool(os.environ.get('GOOGLE_MAPS_API_KEY')),
+                "secret_manager_key_available": bool(get_secret("GOOGLE_MAPS_API_KEY") if 'get_secret' in locals() else None)
+            }
+        }), 500
     except Exception as e:
+        # Other errors
+        logger.error(f"Error testing GBP scraper: {str(e)}")
         return jsonify({
-            "success": False,
-            "error": f"GBP scraper error: {str(e)}"
+            "status": "error",
+            "error": str(e)
         }), 500
 
 if __name__ == '__main__':
