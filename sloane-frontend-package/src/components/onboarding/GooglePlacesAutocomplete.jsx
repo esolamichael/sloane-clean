@@ -65,10 +65,31 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
     const initAndActivate = () => {
       console.log('✅ Initializing Google services from callback');
       try {
+        // Check for any console warnings or errors related to Google Maps
+        const originalConsoleWarn = console.warn;
+        console.warn = function(msg, ...args) {
+          if (msg && typeof msg === 'string' && msg.includes('Google Maps JavaScript API')) {
+            console.error('❌ Google Maps API Warning detected:', msg);
+            // If we detect version warning, try to handle it
+            if (msg.includes('RetiredVersion')) {
+              console.log('🔧 Detected retired version warning - will use fallback approach');
+              setUseGooglePlaces(false);
+              setGoogleApiError("Google Maps API version warning detected. Using fallback search instead.");
+              return;
+            }
+          }
+          originalConsoleWarn.apply(console, [msg, ...args]);
+        };
+        
         initializeGoogleServices();
         setGoogleApiLoaded(true);
         setUseGooglePlaces(true);
         setGoogleApiError(null);
+        
+        // Restore original console
+        setTimeout(() => {
+          console.warn = originalConsoleWarn;
+        }, 1000);
       } catch (err) {
         console.error('❌ Error initializing Google services:', err);
         setGoogleApiError(`Error initializing Google services: ${err.message}`);
@@ -141,7 +162,7 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
       else if (attempts >= maxAttempts) {
         console.error('❌ Timed out waiting for Google Maps API to load');
         clearInterval(checkInterval);
-        setGoogleApiError('Timed out waiting for Google Maps API to load');
+        setGoogleApiError('Timed out waiting for Google Maps API to load. Using fallback search instead.');
         setUseGooglePlaces(false);
         
         // Try to force reload the API
