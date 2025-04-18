@@ -167,14 +167,17 @@ def gbp_test():
     try:
         from app.business.scrapers import GBPScraper
         
-        # First check if the Google Maps API key is accessible
-        api_key = os.environ.get('GOOGLE_MAPS_API_KEY')
-        # Use the imported get_secret function with the EXACT hyphenated name
-        secret_key = get_secret("google-maps-api-key")
+        # Check if the API keys are accessible
+        env_api_key = os.environ.get('GOOGLE_MAPS_API_KEY')
+        
+        # Check both API keys in Secret Manager
+        maps_api_key = get_secret("google-maps-api-key")
+        app_engine_api_key = get_secret("APP_ENGINE_API_KEY")
         
         # Log information about the API key availability
-        logger.info(f"API Key in environment: {'Yes' if api_key else 'No'}")
-        logger.info(f"API Key in Secret Manager: {'Yes' if secret_key else 'No'}")
+        logger.info(f"Maps API Key in environment: {'Yes' if env_api_key else 'No'}")
+        logger.info(f"Maps API Key in Secret Manager: {'Yes' if maps_api_key else 'No'}")
+        logger.info(f"App Engine API Key in Secret Manager: {'Yes' if app_engine_api_key else 'No'}")
         
         # Create a scraper instance
         scraper = GBPScraper()
@@ -188,8 +191,9 @@ def gbp_test():
         # Add some diagnostic information to the response
         if not result.get("success", False):
             result["diagnostics"] = {
-                "env_api_key_available": bool(api_key),
-                "secret_manager_key_available": bool(secret_key),
+                "env_api_key_available": bool(env_api_key),
+                "maps_api_key_available": bool(maps_api_key),
+                "app_engine_api_key_available": bool(app_engine_api_key),
                 "scraper_key_available": bool(scraper.api_key)
             }
             

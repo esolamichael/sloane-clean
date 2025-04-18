@@ -96,12 +96,18 @@ def close_mongodb_connection():
 # Connect to MongoDB when starting the app
 connect_to_mongodb()
 
-# Get Google Maps API key using exact name
-maps_api_key = get_secret("google-maps-api-key")
-if maps_api_key:
-    logger.info("Google Maps API key retrieved successfully")
+# Get App Engine API key for server-side Places API requests
+app_engine_api_key = get_secret("APP_ENGINE_API_KEY")
+if app_engine_api_key:
+    logger.info("App Engine API key retrieved successfully")
 else:
-    logger.warning("Google Maps API key not found")
+    logger.warning("App Engine API key not found, trying fallback")
+    # Try fallback to Google Maps API key (not recommended for production)
+    app_engine_api_key = get_secret("google-maps-api-key")
+    if app_engine_api_key:
+        logger.warning("Using Google Maps API key as fallback (not recommended)")
+    else:
+        logger.warning("No API key available for Places API requests")
 
 @app.route('/')
 def home():
@@ -147,13 +153,13 @@ def test_mongo():
 
 @app.route('/api/maps/test')
 def test_maps_api():
-    if not maps_api_key:
-        return jsonify({"error": "Google Maps API key not configured"}), 500
+    if not app_engine_api_key:
+        return jsonify({"error": "API key for Places API not configured"}), 500
     
     try:
         # Test a simple Places API call
         location = "New York"
-        url = f"https://maps.googleapis.com/maps/api/place/textsearch/json?query={location}&key={maps_api_key}"
+        url = f"https://maps.googleapis.com/maps/api/place/textsearch/json?query={location}&key={app_engine_api_key}"
         
         response = requests.get(url)
         data = response.json()
@@ -172,8 +178,8 @@ def test_maps_api():
 @app.route('/api/gbp/test')
 def test_gbp_scraper():
     """Test the GBP scraper with a known business name"""
-    if not maps_api_key:
-        return jsonify({"error": "Google Maps API key not configured"}), 500
+    if not app_engine_api_key:
+        return jsonify({"error": "API key for Places API not configured"}), 500
     
     try:
         business_name = "Starbucks"
@@ -181,7 +187,7 @@ def test_gbp_scraper():
         
         # Use the Places API to search for the business
         search_query = f"{business_name} {location}"
-        search_url = f"https://maps.googleapis.com/maps/api/place/textsearch/json?query={search_query}&key={maps_api_key}"
+        search_url = f"https://maps.googleapis.com/maps/api/place/textsearch/json?query={search_query}&key={app_engine_api_key}"
         
         logger.info(f"Searching for business: {search_query}")
         response = requests.get(search_url)
@@ -215,7 +221,7 @@ def test_gbp_scraper():
             "opening_hours"
         ]
         
-        details_url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields={','.join(fields)}&key={maps_api_key}"
+        details_url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields={','.join(fields)}&key={app_engine_api_key}"
         
         logger.info(f"Getting details for place_id: {place_id}")
         response = requests.get(details_url)

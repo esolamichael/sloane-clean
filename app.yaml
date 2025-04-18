@@ -4,7 +4,6 @@ instance_class: F1
 
 env_variables:
   PROJECT_ID: "clean-code-app-1744825963"
-  service_account: clean-code-app-1744825963@appspot.gserviceaccount.com
   USE_SECRET_MANAGER: "true"
   GOOGLE_CLOUD_PROJECT: "clean-code-app-1744825963"
 

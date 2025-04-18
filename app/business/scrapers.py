@@ -377,13 +377,19 @@ class GBPScraper:
     def _get_api_key(self) -> str:
         """Get Google Maps API key from Secret Manager or environment variable."""
         try:
-            # Get API key directly using the correct hyphenated name
-            api_key = get_secret("google-maps-api-key")
+            # Use the App Engine API key for server-side Places API requests
+            api_key = get_secret("APP_ENGINE_API_KEY")
             if api_key:
-                logger.info("Successfully retrieved Google Maps API key from Secret Manager using correct name")
+                logger.info("Successfully retrieved App Engine API key from Secret Manager")
                 return api_key
                 
-            # Fall back to environment variable
+            # Try Google Maps API key as fallback
+            api_key = get_secret("google-maps-api-key")
+            if api_key:
+                logger.info("Using Google Maps API key from Secret Manager as fallback")
+                return api_key
+                
+            # Last resort fallback to environment variable
             api_key = os.getenv("GOOGLE_MAPS_API_KEY")
             if api_key:
                 logger.info("Using Google Maps API key from environment variable")
