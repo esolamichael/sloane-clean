@@ -167,47 +167,65 @@ def gbp_test():
     try:
         from app.business.scrapers import GBPScraper
         
-        # Check if the API keys are accessible
-        env_api_key = os.environ.get('GOOGLE_MAPS_API_KEY')
+        # Check API keys via all possible methods for thorough diagnostics
         
-        # Check both API keys in Secret Manager
+        # 1. Environment variables
+        env_standard_key = os.environ.get('GOOGLE_MAPS_API_KEY')
+        env_app_engine_key = os.environ.get('APP_ENGINE_API_KEY')
+        
+        # 2. Secret Manager through utility function
         maps_api_key = get_secret("google-maps-api-key")
-        app_engine_api_key = get_secret("APP_ENGINE_API_KEY")
+        app_engine_api_key_via_util = get_secret("APP_ENGINE_API_KEY")
         
-        # Log information about the API key availability
-        logger.info(f"Maps API Key in environment: {'Yes' if env_api_key else 'No'}")
-        logger.info(f"Maps API Key in Secret Manager: {'Yes' if maps_api_key else 'No'}")
-        logger.info(f"App Engine API Key in Secret Manager: {'Yes' if app_engine_api_key else 'No'}")
+        # 3. DIRECT Secret Manager access
+        app_engine_api_key_direct = None
+        try:
+            # Direct access to the secret bypassing any mapping
+            client = secretmanager.SecretManagerServiceClient()
+            name = f"projects/{PROJECT_ID}/secrets/APP_ENGINE_API_KEY_SECRET/versions/latest"
+            response = client.access_secret_version(request={"name": name})
+            app_engine_api_key_direct = response.payload.data.decode("UTF-8")
+            logger.info("Successfully retrieved APP_ENGINE_API_KEY_SECRET via direct access")
+        except Exception as direct_err:
+            logger.error(f"Error directly accessing APP_ENGINE_API_KEY_SECRET: {direct_err}")
         
-        # Create a scraper instance
+        # Log comprehensive diagnostic information
+        logger.info(f"Standard Maps API Key in environment: {'Yes' if env_standard_key else 'No'}")
+        logger.info(f"App Engine API Key in environment: {'Yes' if env_app_engine_key else 'No'}")
+        logger.info(f"Maps API Key via utility function: {'Yes' if maps_api_key else 'No'}")
+        logger.info(f"App Engine API Key via utility function: {'Yes' if app_engine_api_key_via_util else 'No'}")
+        logger.info(f"App Engine API Key via direct access: {'Yes' if app_engine_api_key_direct else 'No'}")
+        
+        # Create a scraper instance that should now use direct access to APP_ENGINE_API_KEY_SECRET
         scraper = GBPScraper()
         
-        # Log information about the scraper's API key
+        # Check if scraper has a valid API key
         logger.info(f"Scraper API key available: {'Yes' if scraper.api_key else 'No'}")
         
         # Test the scraper with a known business
         result = scraper.scrape_gbp("test_business_id", "Starbucks", "San Francisco")
         
-        # Add some diagnostic information to the response
-        if not result.get("success", False):
-            result["diagnostics"] = {
-                "env_api_key_available": bool(env_api_key),
-                "maps_api_key_available": bool(maps_api_key),
-                "app_engine_api_key_available": bool(app_engine_api_key),
-                "scraper_key_available": bool(scraper.api_key)
-            }
-            
+        # Add detailed diagnostic information to the response
+        result["diagnostics"] = {
+            "env_standard_key_available": bool(env_standard_key),
+            "env_app_engine_key_available": bool(env_app_engine_key),
+            "maps_api_key_via_util_available": bool(maps_api_key),
+            "app_engine_api_key_via_util_available": bool(app_engine_api_key_via_util),
+            "app_engine_api_key_direct_available": bool(app_engine_api_key_direct),
+            "scraper_key_available": bool(scraper.api_key)
+        }
+        
         return jsonify(result)
     except ValueError as e:
         # API key related errors
         logger.error(f"API key error in GBP scraper test: {str(e)}")
         return jsonify({
             "status": "error",
-            "error": "Google Maps API key not properly configured",
+            "error": "API key not properly configured",
             "details": str(e),
             "diagnostics": {
-                "env_api_key_available": bool(os.environ.get('GOOGLE_MAPS_API_KEY')),
-                "secret_manager_key_available": bool(secret_key if 'secret_key' in locals() else None)
+                "env_standard_key_available": bool(os.environ.get('GOOGLE_MAPS_API_KEY')),
+                "env_app_engine_key_available": bool(os.environ.get('APP_ENGINE_API_KEY'))
             }
         }), 500
     except Exception as e:

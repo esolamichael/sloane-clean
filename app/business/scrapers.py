@@ -13,6 +13,7 @@ from ..utils.secrets import get_secret
 import os
 import pandas as pd
 from typing import Optional, Dict, Any
+from google.cloud import secretmanager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -377,30 +378,49 @@ class GBPScraper:
     def _get_api_key(self) -> str:
         """Get Google Maps API key from Secret Manager or environment variable."""
         try:
-            # Use the App Engine API key for server-side Places API requests
-            api_key = get_secret("APP_ENGINE_API_KEY")
-            if api_key:
-                logger.info("Successfully retrieved App Engine API key from Secret Manager")
-                return api_key
-                
-            # Try Google Maps API key as fallback
-            api_key = get_secret("google-maps-api-key")
-            if api_key:
-                logger.info("Using Google Maps API key from Secret Manager as fallback")
-                return api_key
-                
-            # Last resort fallback to environment variable
-            api_key = os.getenv("GOOGLE_MAPS_API_KEY")
-            if api_key:
-                logger.info("Using Google Maps API key from environment variable")
-                return api_key
-                
-            logger.error("No Google Maps API key found in Secret Manager or environment variables")
-            raise ValueError("Google Maps API key not found. Make sure it's set in the Secret Manager or environment variables.")
+            # BYPASS the mapping system and access the App Engine API key directly
+            project_id = "clean-code-app-1744825963"
+            secret_name = "APP_ENGINE_API_KEY_SECRET"  # Use the exact secret name
             
+            logger.info(f"Directly accessing App Engine API Key secret: {secret_name}")
+            
+            # Create the Secret Manager client
+            client = secretmanager.SecretManagerServiceClient()
+            
+            # Build the resource name of the secret version - NO MAPPING
+            name = f"projects/{project_id}/secrets/{secret_name}/versions/latest"
+            
+            try:
+                # Access the secret version directly
+                response = client.access_secret_version(request={"name": name})
+                api_key = response.payload.data.decode("UTF-8")
+                logger.info("Successfully retrieved App Engine API key DIRECTLY")
+                return api_key
+            except Exception as direct_err:
+                logger.error(f"Error directly accessing APP_ENGINE_API_KEY_SECRET: {direct_err}")
+                
+                # Only as absolute last resort, try the google-maps-api-key
+                fallback_name = f"projects/{project_id}/secrets/google-maps-api-key/versions/latest"
+                try:
+                    response = client.access_secret_version(request={"name": fallback_name})
+                    api_key = response.payload.data.decode("UTF-8")
+                    logger.warning("FALLBACK: Using google-maps-api-key instead of APP_ENGINE_API_KEY_SECRET")
+                    return api_key
+                except Exception as fallback_err:
+                    logger.error(f"Error accessing fallback google-maps-api-key: {fallback_err}")
+                    
+                    # Try environment variable as a last resort
+                    env_key = os.environ.get("APP_ENGINE_API_KEY") or os.environ.get("GOOGLE_MAPS_API_KEY")
+                    if env_key:
+                        logger.warning("Using API key from environment variables as last resort")
+                        return env_key
+                    
+                    logger.error("All attempts to get API key failed")
+                    raise ValueError("No API key available for Places API - all retrieval methods failed")
+        
         except Exception as e:
-            logger.error(f"Error getting Google Maps API key: {str(e)}")
-            raise ValueError(f"Failed to retrieve Google Maps API key: {str(e)}")
+            logger.error(f"Critical error getting API key: {str(e)}")
+            raise ValueError("Critical failure obtaining Places API key")
             
     def scrape_gbp(self, business_id: str, business_name: str, location: Optional[str] = None) -> Dict[str, Any]:
         """

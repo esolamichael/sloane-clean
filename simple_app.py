@@ -96,18 +96,40 @@ def close_mongodb_connection():
 # Connect to MongoDB when starting the app
 connect_to_mongodb()
 
-# Get App Engine API key for server-side Places API requests
-app_engine_api_key = get_secret("APP_ENGINE_API_KEY")
-if app_engine_api_key:
-    logger.info("App Engine API key retrieved successfully")
-else:
-    logger.warning("App Engine API key not found, trying fallback")
-    # Try fallback to Google Maps API key (not recommended for production)
-    app_engine_api_key = get_secret("google-maps-api-key")
-    if app_engine_api_key:
-        logger.warning("Using Google Maps API key as fallback (not recommended)")
-    else:
-        logger.warning("No API key available for Places API requests")
+# DIRECTLY get App Engine API key for server-side Places API requests
+try:
+    # Access the App Engine API key directly without mapping
+    client = secretmanager.SecretManagerServiceClient()
+    secret_name = f"projects/{PROJECT_ID}/secrets/APP_ENGINE_API_KEY_SECRET/versions/latest"
+    
+    logger.info(f"Directly accessing secret: APP_ENGINE_API_KEY_SECRET")
+    response = client.access_secret_version(request={"name": secret_name})
+    app_engine_api_key = response.payload.data.decode("UTF-8")
+    logger.info("App Engine API key retrieved DIRECTLY successfully")
+except Exception as e:
+    logger.error(f"Error accessing APP_ENGINE_API_KEY_SECRET directly: {str(e)}")
+    app_engine_api_key = None
+    
+# Try fallback only if direct access failed
+if not app_engine_api_key:
+    logger.warning("Direct access failed, trying more approaches")
+    try:
+        # Try using the mapping function
+        app_engine_api_key = get_secret("APP_ENGINE_API_KEY")
+        if app_engine_api_key:
+            logger.info("App Engine API key retrieved through mapping")
+        else:
+            # Last resort fallback to Google Maps API key (not recommended for production)
+            logger.warning("Falling back to google-maps-api-key (NOT RECOMMENDED)")
+            app_engine_api_key = get_secret("google-maps-api-key")
+            if app_engine_api_key:
+                logger.warning("Using Google Maps API key as fallback (not recommended)")
+            else:
+                app_engine_api_key = os.environ.get("APP_ENGINE_API_KEY") or os.environ.get("GOOGLE_MAPS_API_KEY")
+                if app_engine_api_key:
+                    logger.warning("Using environment variable API key as last resort")
+                else:
+                    logger.error("All attempts to get API key failed")
 
 @app.route('/')
 def home():
