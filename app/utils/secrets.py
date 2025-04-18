@@ -35,18 +35,18 @@ def get_secret(secret_id: str) -> Optional[str]:
         The secret value as a string, or None if not found
     """
     try:
-        # Always use the correct secret names directly
-        # mongodb-connection, google-maps-api-key, twilio-auth-token, APP_ENGINE_API_KEY_SECRET
+        # Map the secret ID to the correct hyphenated name if needed
+        actual_secret_id = SECRET_NAME_MAP.get(secret_id, secret_id)
         
         # Always use the correct project ID
         project_id = PROJECT_ID
-        logger.info(f"Using project ID: {project_id} to get secret {secret_id}")
+        logger.info(f"Using project ID: {project_id} to get secret {secret_id} (mapped to {actual_secret_id})")
         
         # Create the Secret Manager client
         client = secretmanager.SecretManagerServiceClient()
         
-        # Build the resource name of the secret version using the exact name
-        name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+        # Build the resource name of the secret version using the mapped name
+        name = f"projects/{project_id}/secrets/{actual_secret_id}/versions/latest"
         
         # Access the secret version
         response = client.access_secret_version(request={"name": name})
@@ -55,7 +55,7 @@ def get_secret(secret_id: str) -> Optional[str]:
         return response.payload.data.decode("UTF-8")
         
     except Exception as e:
-        logger.error(f"Error accessing secret {secret_id}: {str(e)}")
+        logger.error(f"Error accessing secret {secret_id} (mapped to {SECRET_NAME_MAP.get(secret_id, secret_id)}): {str(e)}")
         return None
 
 
