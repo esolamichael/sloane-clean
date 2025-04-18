@@ -1,4 +1,4 @@
-# simple_app.py - A simplified app to securely connect to MongoDB and Google Maps API
+# simple_app.py - A simplified app to test the GBP scraper functionality
 from flask import Flask, jsonify, request
 import pymongo
 from bson.objectid import ObjectId
@@ -7,47 +7,48 @@ import os
 import logging
 import json
 import requests
+from google.cloud import secretmanager
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Project ID constant
+PROJECT_ID = "clean-code-app-1744825963"
+
+def get_secret(secret_id: str) -> str:
+    """
+    Get a secret from Google Cloud Secret Manager.
+    
+    Args:
+        secret_id: The ID of the secret to retrieve
+        
+    Returns:
+        The secret value as a string
+    """
+    try:
+        # Always use the correct project ID
+        project_id = PROJECT_ID
+        logger.info(f"Using project ID: {project_id}")
+        
+        # Create the Secret Manager client
+        client = secretmanager.SecretManagerServiceClient()
+        
+        # Build the resource name of the secret version
+        name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+        
+        # Access the secret version
+        response = client.access_secret_version(request={"name": name})
+        
+        # Return the decoded payload
+        return response.payload.data.decode("UTF-8")
+        
+    except Exception as e:
+        logger.error(f"Error accessing secret {secret_id}: {str(e)}")
+        raise
+
 # Create Flask app
 app = Flask(__name__)
-
-# Function to get secrets from Secret Manager
-def get_secret(secret_name):
-    """Retrieve a secret from Google Cloud Secret Manager."""
-    if os.environ.get('USE_SECRET_MANAGER', 'false').lower() == 'true':
-        try:
-            from google.cloud import secretmanager
-            
-            # Try to get project ID from metadata server
-            project_id = None
-            try:
-                metadata_url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
-                project_id = requests.get(
-                    metadata_url, 
-                    headers={"Metadata-Flavor": "Google"}
-                ).text
-                logger.info(f"Retrieved project ID from metadata: {project_id}")
-            except Exception as e:
-                logger.warning(f"Could not get project ID from metadata server: {str(e)}")
-            
-            # Create the Secret Manager client
-            client = secretmanager.SecretManagerServiceClient()
-            
-            # Get the secret
-            parent = f"projects/{project_id}"
-            secret_path = f"{parent}/secrets/{secret_name}/versions/latest"
-            
-            logger.info(f"Accessing secret: {secret_name}")
-            response = client.access_secret_version(request={"name": secret_path})
-            return response.payload.data.decode("UTF-8")
-        except Exception as e:
-            logger.error(f"Secret Manager error: {str(e)}")
-            return None
-    return os.environ.get(secret_name)
 
 # MongoDB client
 client = None
@@ -156,6 +157,86 @@ def test_maps_api():
     except Exception as e:
         logger.error(f"Google Maps API test error: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/gbp/test')
+def test_gbp_scraper():
+    """Test the GBP scraper with a known business name"""
+    if not maps_api_key:
+        return jsonify({"error": "Google Maps API key not configured"}), 500
+    
+    try:
+        business_name = "Starbucks"
+        location = "San Francisco"
+        
+        # Use the Places API to search for the business
+        search_query = f"{business_name} {location}"
+        search_url = f"https://maps.googleapis.com/maps/api/place/textsearch/json?query={search_query}&key={maps_api_key}"
+        
+        logger.info(f"Searching for business: {search_query}")
+        response = requests.get(search_url)
+        response.raise_for_status()
+        search_data = response.json()
+        
+        if search_data.get('status') != 'OK':
+            return jsonify({
+                "success": False, 
+                "error": f"Places API error: {search_data.get('status')}",
+                "details": search_data.get('error_message', '')
+            }), 500
+        
+        if not search_data.get('results'):
+            return jsonify({
+                "success": False,
+                "error": "No results found for the business"
+            }), 404
+        
+        # Get the first result
+        place = search_data['results'][0]
+        place_id = place['place_id']
+        
+        # Get detailed information
+        fields = [
+            "name",
+            "formatted_address",
+            "formatted_phone_number",
+            "website",
+            "rating",
+            "opening_hours"
+        ]
+        
+        details_url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields={','.join(fields)}&key={maps_api_key}"
+        
+        logger.info(f"Getting details for place_id: {place_id}")
+        response = requests.get(details_url)
+        response.raise_for_status()
+        details_data = response.json()
+        
+        if details_data.get('status') != 'OK':
+            return jsonify({
+                "success": False,
+                "error": f"Places API error: {details_data.get('status')}",
+                "details": details_data.get('error_message', '')
+            }), 500
+        
+        result = details_data['result']
+        
+        # Return relevant details
+        business_data = {
+            'name': result.get('name'),
+            'address': result.get('formatted_address'),
+            'phone': result.get('formatted_phone_number'),
+            'website': result.get('website'),
+            'rating': result.get('rating')
+        }
+        
+        return jsonify({
+            "success": True,
+            "data": business_data,
+            "message": "GBP scraper test successful"
+        })
+    except Exception as e:
+        logger.error(f"GBP scraper test error: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == '__main__':
     try:
