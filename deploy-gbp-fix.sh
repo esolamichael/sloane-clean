@@ -5,14 +5,20 @@ echo "----------------------------------------------------"
 echo "Deploying updated application with GBP scraper fix v2"
 echo "----------------------------------------------------"
 
+# Set project ID
+PROJECT_ID="clean-code-app-1744825963"
+APP_ENGINE_SA="clean-code-app-1744825963@appspot.gserviceaccount.com"
+
+# Set environment variables
+export GOOGLE_CLOUD_PROJECT=$PROJECT_ID
+export USE_SECRET_MANAGER="true"
+
 # 1. Ensure Secret Manager is enabled
 echo "Ensuring Secret Manager API is enabled for the project..."
 gcloud services enable secretmanager.googleapis.com
 
 # 2. Add IAM permissions for App Engine to access Secret Manager
 echo "Granting Secret Manager access to App Engine service account..."
-PROJECT_ID="clean-code-app-1744825963"
-APP_ENGINE_SA="clean-code-app-1744825963@appspot.gserviceaccount.com"
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
     --member="serviceAccount:${APP_ENGINE_SA}" \
     --role="roles/secretmanager.secretAccessor"
@@ -35,14 +41,16 @@ cp requirements.txt /tmp/deploy_cache/
 echo "Creating app.yaml file..."
 cat > /tmp/deploy_cache/app.yaml << 'EOF'
 runtime: python39
-entrypoint: gunicorn -b :$PORT main:app --timeout 120
+env: flex
+entrypoint: gunicorn -b :$PORT main:app
+
 env_variables:
   API_HOST: "https://clean-code-app-1744825963.uc.r.appspot.com"
-  MONGODB_NAME: "sloane_ai_service" 
-  TWILIO_ACCOUNT_SID: "AC8cc057f196bec4492fd4a6e8da90aa8a"
-  TWILIO_PHONE_NUMBER: "+14245295093"
+  MONGODB_NAME: "sloane_ai_service"
   USE_SECRET_MANAGER: "true"
   GOOGLE_CLOUD_PROJECT: "clean-code-app-1744825963"
+  TWILIO_ACCOUNT_SID: "AC8cc057f196bec4492fd4a6e8da90aa8a"
+  TWILIO_PHONE_NUMBER: "+14245295093"
   DEBUG: "true"
 instance_class: F2
 automatic_scaling:
@@ -91,12 +99,12 @@ EOF
 
 # 8. Verify Google Maps API key exists in Secret Manager
 echo "Verifying Google Maps API key in Secret Manager..."
-SECRET_EXISTS=$(gcloud secrets describe GOOGLE_MAPS_API_KEY --project=${PROJECT_ID} 2>/dev/null || echo "not-exists")
+SECRET_EXISTS=$(gcloud secrets describe google-maps-api-key --project=${PROJECT_ID} 2>/dev/null || echo "not-exists")
 
 if [[ "$SECRET_EXISTS" == *"not-exists"* ]]; then
-  echo "ERROR: GOOGLE_MAPS_API_KEY does not exist in Secret Manager."
-  echo "Please create it with: gcloud secrets create GOOGLE_MAPS_API_KEY --replication-policy="automatic""
-  echo "Then add the value with: echo -n 'your-api-key' | gcloud secrets versions add GOOGLE_MAPS_API_KEY --data-file=-"
+  echo "ERROR: google-maps-api-key does not exist in Secret Manager."
+  echo "Please create it with: gcloud secrets create google-maps-api-key --replication-policy="automatic""
+  echo "Then add the value with: echo -n 'your-api-key' | gcloud secrets versions add google-maps-api-key --data-file=-"
   exit 1
 else
   echo "Google Maps API key found in Secret Manager."
