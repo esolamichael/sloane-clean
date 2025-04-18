@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 
 # Secret name mapping
 SECRET_NAME_MAP = {
-    "MONGODB_URL": "MONGODB_URL",
-    "GOOGLE_MAPS_API_KEY": "GOOGLE_MAPS_API_KEY",
-    "TWILIO_AUTH_TOKEN": "TWILIO_AUTH_TOKEN"
+    "MONGODB_URL": "mongodb-connection",
+    "GOOGLE_MAPS_API_KEY": "google-maps-api-key",
+    "TWILIO_AUTH_TOKEN": "twilio-auth-token"
 }
 
 # Function to get secrets from Secret Manager
