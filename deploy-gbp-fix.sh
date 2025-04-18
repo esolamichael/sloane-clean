@@ -54,15 +54,11 @@ env_variables:
   DEBUG: "true"
 instance_class: F2
 automatic_scaling:
-  min_instances: 1
-  max_instances: 3
-  min_idle_instances: 1
-  max_idle_instances: 2
-  target_cpu_utilization: 0.65
-  target_throughput_utilization: 0.65
-  max_concurrent_requests: 50
-  min_pending_latency: 100ms
-  max_pending_latency: 5000ms
+  min_num_instances: 1
+  max_num_instances: 3
+  cool_down_period_sec: 180
+  cpu_utilization:
+    target_utilization: 0.65
 inbound_services:
 - warmup
 EOF
