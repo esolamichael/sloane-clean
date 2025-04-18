@@ -77,9 +77,90 @@ const getGoogleApiKey = async () => {
   }
 };
 
+// Simple test function to directly test GBP scraper
+export const testGBPScraper = async (businessName) => {
+  console.log('🔍 DIRECT TEST: Testing GBP scraper with business name:', businessName);
+  
+  try {
+    // Get API URL
+    let apiBaseUrl = '';
+    if (process.env.NODE_ENV === 'development') {
+      apiBaseUrl = 'http://localhost:8000/api';
+    } else {
+      apiBaseUrl = '/api';
+    }
+    
+    console.log('🔍 DIRECT TEST: Using API base URL:', apiBaseUrl);
+    
+    // First test the health endpoint
+    try {
+      console.log('🔍 DIRECT TEST: Testing API health endpoint...');
+      const healthResponse = await fetch(`${apiBaseUrl}/health`);
+      console.log('🔍 DIRECT TEST: Health endpoint status:', healthResponse.status);
+      console.log('🔍 DIRECT TEST: Health endpoint ok:', healthResponse.ok);
+      const healthData = await healthResponse.json();
+      console.log('🔍 DIRECT TEST: Health endpoint response:', healthData);
+    } catch (healthError) {
+      console.error('🔍 DIRECT TEST: Error checking API health:', healthError);
+    }
+    
+    // Now test the GBP test endpoint
+    try {
+      console.log('🔍 DIRECT TEST: Testing GBP test endpoint...');
+      const testResponse = await fetch(`${apiBaseUrl}/gbp/test`);
+      console.log('🔍 DIRECT TEST: GBP test endpoint status:', testResponse.status);
+      console.log('🔍 DIRECT TEST: GBP test endpoint ok:', testResponse.ok);
+      const testData = await testResponse.json();
+      console.log('🔍 DIRECT TEST: GBP test endpoint response:', testData);
+    } catch (testError) {
+      console.error('🔍 DIRECT TEST: Error checking GBP test endpoint:', testError);
+    }
+    
+    // Finally, try the actual scrape-gbp endpoint
+    console.log('🔍 DIRECT TEST: Testing real GBP scraper endpoint...');
+    const endpoint = `${apiBaseUrl}/business/scrape-gbp`;
+    console.log('🔍 DIRECT TEST: Endpoint URL:', endpoint);
+    
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Business-ID': 'test_business_id',
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache'
+      },
+      body: JSON.stringify({ 
+        business_name: businessName,
+        location: "San Francisco", 
+        _t: new Date().getTime()
+      })
+    });
+    
+    console.log('🔍 DIRECT TEST: GBP scraper status:', response.status);
+    console.log('🔍 DIRECT TEST: GBP scraper ok:', response.ok);
+    
+    const data = await response.json();
+    console.log('🔍 DIRECT TEST: GBP scraper response:', data);
+    
+    return {
+      success: true,
+      result: data
+    };
+  } catch (error) {
+    console.error('🔍 DIRECT TEST: Error testing GBP scraper:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+};
+
 const businessApi = {
   // Get Google API key
   getGoogleApiKey,
+  
+  // Test function
+  testGBPScraper,
   
   // Real API methods now used instead of mock implementations
   

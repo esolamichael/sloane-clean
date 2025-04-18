@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GBP Scraper Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            margin-bottom: 20px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        input {
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 300px;
+            margin-right: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #3367d6;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            overflow: auto;
+            max-height: 400px;
+        }
+        .loading {
+            display: none;
+            margin-top: 20px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 2s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1>GBP Scraper Test Tool</h1>
+    
+    <div class="input-group">
+        <input type="text" id="businessName" placeholder="Enter business name" value="Starbucks">
+        <input type="text" id="location" placeholder="Enter location (optional)" value="San Francisco">
+        <button id="testApi">Test API Health</button>
+        <button id="testGbp">Test GBP Scraper</button>
+    </div>
+    
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <span>Testing... Please wait</span>
+    </div>
+    
+    <h2>Results:</h2>
+    <pre id="results">No results yet</pre>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM elements
+            const businessNameInput = document.getElementById('businessName');
+            const locationInput = document.getElementById('location');
+            const testApiButton = document.getElementById('testApi');
+            const testGbpButton = document.getElementById('testGbp');
+            const loadingElement = document.getElementById('loading');
+            const resultsElement = document.getElementById('results');
+            
+            // Format JSON function
+            function formatJSON(obj) {
+                return JSON.stringify(obj, null, 2);
+            }
+            
+            // Show loading spinner
+            function showLoading() {
+                loadingElement.style.display = 'block';
+            }
+            
+            // Hide loading spinner
+            function hideLoading() {
+                loadingElement.style.display = 'none';
+            }
+            
+            // Test the API health
+            testApiButton.addEventListener('click', async function() {
+                showLoading();
+                resultsElement.textContent = 'Testing API health...';
+                
+                try {
+                    console.log('Testing API health endpoint...');
+                    const response = await fetch('/api/health');
+                    console.log('Health response status:', response.status);
+                    
+                    const data = await response.json();
+                    console.log('Health response data:', data);
+                    
+                    resultsElement.textContent = 'API Health Test Results:\n' + formatJSON(data);
+                    
+                    if (data.status === 'healthy') {
+                        resultsElement.textContent += '\n\n✅ API is healthy!';
+                    } else {
+                        resultsElement.textContent += '\n\n❌ API health check failed.';
+                    }
+                } catch (error) {
+                    console.error('Error testing API health:', error);
+                    resultsElement.textContent = 'Error testing API health:\n' + error.message;
+                } finally {
+                    hideLoading();
+                }
+            });
+            
+            // Test GBP Scraper
+            testGbpButton.addEventListener('click', async function() {
+                const businessName = businessNameInput.value.trim();
+                const location = locationInput.value.trim();
+                
+                if (!businessName) {
+                    alert('Please enter a business name');
+                    return;
+                }
+                
+                showLoading();
+                resultsElement.textContent = `Testing GBP scraper for: ${businessName} in ${location || 'any location'}`;
+                
+                try {
+                    console.log(`Testing GBP scraper for: ${businessName} in ${location || 'any location'}`);
+                    
+                    // First test the health endpoint
+                    console.log('Testing API health first...');
+                    const healthResponse = await fetch('/api/health');
+                    if (!healthResponse.ok) {
+                        throw new Error(`API health check failed with status: ${healthResponse.status}`);
+                    }
+                    const healthData = await healthResponse.json();
+                    console.log('Health response:', healthData);
+                    
+                    // Now test the GBP endpoint
+                    console.log('Testing GBP scraper endpoint...');
+                    const response = await fetch('/api/gbp/test');
+                    console.log('GBP test response status:', response.status);
+                    
+                    const gbpTestData = await response.json();
+                    console.log('GBP test response data:', gbpTestData);
+                    
+                    // Now try the real scraper endpoint
+                    console.log('Testing real GBP scraper with data...');
+                    const scrapeResponse = await fetch('/api/business/scrape-gbp', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            business_name: businessName,
+                            location: location || undefined
+                        })
+                    });
+                    console.log('Scrape response status:', scrapeResponse.status);
+                    
+                    const scrapeData = await scrapeResponse.json();
+                    console.log('Scrape response data:', scrapeData);
+                    
+                    // Display all results
+                    resultsElement.textContent = 'GBP Scraper Test Results:\n\n';
+                    resultsElement.textContent += 'API Health:\n' + formatJSON(healthData) + '\n\n';
+                    resultsElement.textContent += 'GBP Test Endpoint:\n' + formatJSON(gbpTestData) + '\n\n';
+                    resultsElement.textContent += 'GBP Scraper Result:\n' + formatJSON(scrapeData);
+                } catch (error) {
+                    console.error('Error testing GBP scraper:', error);
+                    resultsElement.textContent = 'Error testing GBP scraper:\n' + error.message;
+                } finally {
+                    hideLoading();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
