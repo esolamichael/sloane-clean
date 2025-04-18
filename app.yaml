@@ -1,19 +1,17 @@
-runtime: python39
-
-entrypoint: gunicorn -b :$PORT main:app
+runtime: python311
+service: default
+instance_class: F1
 
 env_variables:
-  API_HOST: "https://clean-code-app-1744825963.uc.r.appspot.com"
-  MONGODB_NAME: "sloane_ai_service"
+  PROJECT_ID: "clean-code-app-1744825963"
+  service_account: clean-code-app-1744825963@appspot.gserviceaccount.com
   USE_SECRET_MANAGER: "true"
   GOOGLE_CLOUD_PROJECT: "clean-code-app-1744825963"
 
-instance_class: F2
-
 automatic_scaling:
-  min_instances: 1
-  max_instances: 3
-  min_idle_instances: 1
   target_cpu_utilization: 0.65
-  target_throughput_utilization: 0.65
-  max_concurrent_requests: 50
+
+handlers:
+- url: /.*
+  script: auto
+  secure: always
