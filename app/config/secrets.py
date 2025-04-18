@@ -18,7 +18,8 @@ SECRET_MAPPINGS = {
     "TWILIO_AUTH_TOKEN": "twilio-auth-token",
     "MONGODB_URL": "mongodb-connection",
     "GOOGLE_MAPS_API_KEY": "google-maps-api-key",
-    "OPENAI_API_KEY": "openai-api-key"
+    "OPENAI_API_KEY": "openai-api-key",
+    "APP_ENGINE_API_KEY": "APP_ENGINE_API_KEY_SECRET"
 }
 
 # Environment variable fallbacks

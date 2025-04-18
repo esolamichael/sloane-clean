@@ -14,55 +14,18 @@ from google.cloud import secretmanager
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Secret name mapping
-SECRET_NAME_MAP = {
-    "MONGODB_URL": "mongodb-connection",
-    "GOOGLE_MAPS_API_KEY": "google-maps-api-key",
-    "TWILIO_AUTH_TOKEN": "twilio-auth-token"
-}
-
-# Function to get secrets from Secret Manager
-def get_secret(secret_name):
-    """Retrieve a secret from Google Cloud Secret Manager."""
-    # Use the mapped secret name if available
-    actual_secret_name = SECRET_NAME_MAP.get(secret_name, secret_name)
-    
-    if os.environ.get('USE_SECRET_MANAGER', 'false').lower() == 'true':
-        try:
-            # Always use the correct project ID
-            project_id = 'clean-code-app-1744825963'
-            logger.info(f"Using project ID: {project_id}")
-                
-            # Create the Secret Manager client
-            client = secretmanager.SecretManagerServiceClient()
-            
-            # Access the secret by name
-            secret_path = f"projects/{project_id}/secrets/{actual_secret_name}/versions/latest"
-            
-            logger.info(f"Attempting to access secret: {secret_path}")
-            
-            # Get the secret value
-            response = client.access_secret_version(request={"name": secret_path})
-            secret_value = response.payload.data.decode("UTF-8")
-            logger.info(f"Successfully retrieved secret: {actual_secret_name} for {secret_name}")
-            return secret_value
-        except Exception as e:
-            logger.error(f"Error accessing Secret Manager for {actual_secret_name} (original: {secret_name}): {str(e)}")
-            return os.environ.get(secret_name)
-    else:
-        # In development, get from environment variable
-        return os.environ.get(secret_name)
+# Import the correct secret handling from app.utils.secrets
+from app.utils.secrets import get_secret, PROJECT_ID
 
 # Initialize MongoDB connection
 def init_mongodb():
     """Initialize MongoDB connection."""
     try:
-        # Get MongoDB URL from Secret Manager
-        secret_name = "MONGODB_URL"
-        mongodb_url = get_secret(secret_name)
+        # Get MongoDB URL from Secret Manager using the exact name
+        mongodb_url = get_secret("mongodb-connection")
         
         if not mongodb_url:
-            logger.warning("Could not retrieve MongoDB URL from any Secret Manager secrets")
+            logger.warning("Could not retrieve MongoDB URL from Secret Manager")
             
             # Try environment variable as fallback
             mongodb_url = os.environ.get("MONGODB_URL")
@@ -116,19 +79,19 @@ def init_mongodb():
 def init_api_keys():
     """Initialize API keys from Secret Manager."""
     try:
-        # Get Google Maps API key
-        maps_api_key = get_secret("GOOGLE_MAPS_API_KEY")
+        # Get Google Maps API key using the EXACT name with hyphens
+        maps_api_key = get_secret("google-maps-api-key")
         if maps_api_key:
             os.environ["GOOGLE_MAPS_API_KEY"] = maps_api_key
-            logger.info("Google Maps API key configured successfully")
+            logger.info("Google Maps API key configured successfully using direct hyphenated name")
         else:
-            logger.error("Could not retrieve Google Maps API key")
+            logger.error("Could not retrieve Google Maps API key with direct name")
         
-        # Get Twilio auth token
-        twilio_auth_token = get_secret("TWILIO_AUTH_TOKEN")
+        # Get Twilio auth token using the EXACT name with hyphens
+        twilio_auth_token = get_secret("twilio-auth-token")
         if twilio_auth_token:
             os.environ["TWILIO_AUTH_TOKEN"] = twilio_auth_token
-            logger.info("Twilio Auth Token configured successfully")
+            logger.info("Twilio Auth Token configured successfully using direct hyphenated name")
         
         return True
     except Exception as e:
@@ -206,8 +169,8 @@ def gbp_test():
         
         # First check if the Google Maps API key is accessible
         api_key = os.environ.get('GOOGLE_MAPS_API_KEY')
-        from app.utils.secrets import get_secret
-        secret_key = get_secret("GOOGLE_MAPS_API_KEY")
+        # Use the imported get_secret function with the EXACT hyphenated name
+        secret_key = get_secret("google-maps-api-key")
         
         # Log information about the API key availability
         logger.info(f"API Key in environment: {'Yes' if api_key else 'No'}")
@@ -240,7 +203,7 @@ def gbp_test():
             "details": str(e),
             "diagnostics": {
                 "env_api_key_available": bool(os.environ.get('GOOGLE_MAPS_API_KEY')),
-                "secret_manager_key_available": bool(get_secret("GOOGLE_MAPS_API_KEY") if 'get_secret' in locals() else None)
+                "secret_manager_key_available": bool(secret_key if 'secret_key' in locals() else None)
             }
         }), 500
     except Exception as e:

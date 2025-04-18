@@ -16,6 +16,14 @@ logger = logging.getLogger(__name__)
 # Project ID constant
 PROJECT_ID = "clean-code-app-1744825963"
 
+# Secret name mapping - converts from uppercase to hyphenated names
+SECRET_NAME_MAP = {
+    "MONGODB_URL": "mongodb-connection",
+    "GOOGLE_MAPS_API_KEY": "google-maps-api-key",
+    "TWILIO_AUTH_TOKEN": "twilio-auth-token",
+    "APP_ENGINE_API_KEY": "APP_ENGINE_API_KEY_SECRET"
+}
+
 def get_secret(secret_id: str) -> str:
     """
     Get a secret from Google Cloud Secret Manager.
@@ -27,15 +35,18 @@ def get_secret(secret_id: str) -> str:
         The secret value as a string
     """
     try:
+        # Map the secret ID to the actual name in Secret Manager
+        actual_secret_name = SECRET_NAME_MAP.get(secret_id, secret_id)
+        
         # Always use the correct project ID
         project_id = PROJECT_ID
-        logger.info(f"Using project ID: {project_id}")
+        logger.info(f"Using project ID: {project_id} to get secret {secret_id} (mapped to {actual_secret_name})")
         
         # Create the Secret Manager client
         client = secretmanager.SecretManagerServiceClient()
         
         # Build the resource name of the secret version
-        name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+        name = f"projects/{project_id}/secrets/{actual_secret_name}/versions/latest"
         
         # Access the secret version
         response = client.access_secret_version(request={"name": name})
@@ -44,7 +55,7 @@ def get_secret(secret_id: str) -> str:
         return response.payload.data.decode("UTF-8")
         
     except Exception as e:
-        logger.error(f"Error accessing secret {secret_id}: {str(e)}")
+        logger.error(f"Error accessing secret {secret_id} (mapped to {SECRET_NAME_MAP.get(secret_id, secret_id)}): {str(e)}")
         raise
 
 # Create Flask app
@@ -58,8 +69,8 @@ def connect_to_mongodb():
     """Connect to MongoDB database."""
     global client, db
     try:
-        # Get MongoDB connection string from Secret Manager or environment
-        mongodb_url = get_secret("MONGODB_URL")
+        # Get MongoDB connection string from Secret Manager using exact name
+        mongodb_url = get_secret("mongodb-connection")
         if not mongodb_url:
             logger.warning("Using fallback MongoDB connection")
             mongodb_url = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
@@ -85,8 +96,8 @@ def close_mongodb_connection():
 # Connect to MongoDB when starting the app
 connect_to_mongodb()
 
-# Get Google Maps API key
-maps_api_key = get_secret("GOOGLE_MAPS_API_KEY")
+# Get Google Maps API key using exact name
+maps_api_key = get_secret("google-maps-api-key")
 if maps_api_key:
     logger.info("Google Maps API key retrieved successfully")
 else:

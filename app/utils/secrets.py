@@ -16,6 +16,14 @@ logger = logging.getLogger(__name__)
 # Project ID constant
 PROJECT_ID = "clean-code-app-1744825963"
 
+# Secret name mapping - use the actual secret names in Secret Manager
+SECRET_NAME_MAP = {
+    "MONGODB_URL": "mongodb-connection",
+    "GOOGLE_MAPS_API_KEY": "google-maps-api-key",
+    "TWILIO_AUTH_TOKEN": "twilio-auth-token",
+    "APP_ENGINE_API_KEY": "APP_ENGINE_API_KEY_SECRET"
+}
+
 def get_secret(secret_id: str) -> Optional[str]:
     """
     Get a secret from Google Cloud Secret Manager.
@@ -27,14 +35,17 @@ def get_secret(secret_id: str) -> Optional[str]:
         The secret value as a string, or None if not found
     """
     try:
+        # Always use the correct secret names directly
+        # mongodb-connection, google-maps-api-key, twilio-auth-token, APP_ENGINE_API_KEY_SECRET
+        
         # Always use the correct project ID
         project_id = PROJECT_ID
-        logger.info(f"Using project ID: {project_id}")
+        logger.info(f"Using project ID: {project_id} to get secret {secret_id}")
         
         # Create the Secret Manager client
         client = secretmanager.SecretManagerServiceClient()
         
-        # Build the resource name of the secret version
+        # Build the resource name of the secret version using the exact name
         name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
         
         # Access the secret version
@@ -83,25 +94,27 @@ def get_mongodb_connection_string(project_id: str = PROJECT_ID) -> str:
         The MongoDB connection string
     """
     try:
-        return get_secret("MONGODB_URL")
+        # Use the EXACT hyphenated name
+        return get_secret("mongodb-connection")
     except Exception as e:
         logger.error(f"Error getting MongoDB connection string: {e}")
         raise
 
 
-def get_twilio_auth_token(project_id: str, secret_id: str = "TWILIO_AUTH_TOKEN") -> str:
+def get_twilio_auth_token(project_id: str, secret_id: str = "twilio-auth-token") -> str:
     """
     Get Twilio auth token from Secret Manager.
     
     Args:
         project_id: The GCP project ID
-        secret_id: The secret ID storing the Twilio auth token
+        secret_id: The secret ID storing the Twilio auth token, defaults to using exact hyphenated name
         
     Returns:
         The Twilio auth token
     """
     try:
-        return get_secret(secret_id)
+        # Use the EXACT hyphenated name
+        return get_secret("twilio-auth-token")
     except Exception as e:
         print(f"Error getting Twilio auth token: {e}")
         # Return empty string if error

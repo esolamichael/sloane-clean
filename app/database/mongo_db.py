@@ -18,8 +18,8 @@ def get_mongo_client():
     global _mongo_client
     if _mongo_client is None:
         try:
-            # Get MongoDB connection string from Secret Manager or environment
-            mongodb_url = get_secret("MONGODB_URL")
+            # Get MongoDB connection string from Secret Manager using exact name
+            mongodb_url = get_secret("mongodb-connection")
             if not mongodb_url:
                 logger.error("Failed to get MongoDB connection string")
                 raise ConnectionError("Could not retrieve MongoDB connection string")

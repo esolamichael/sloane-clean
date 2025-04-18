@@ -22,14 +22,14 @@ def get_db():
             from ..utils.secrets import PROJECT_ID
             logger.info(f"Using project ID: {PROJECT_ID}")
             
-            # Get the connection string from Secret Manager
-            mongodb_url = get_secret("MONGODB_URL")
+            # Get the connection string from Secret Manager using the exact name
+            mongodb_url = get_secret("mongodb-connection")
             
             if not mongodb_url:
                 logger.error("Failed to get MongoDB connection string")
                 raise ConnectionError("Could not retrieve MongoDB connection string")
                 
-            logger.info("Successfully retrieved MongoDB connection string")
+            logger.info("Successfully retrieved MongoDB connection string with direct name access")
             
             # Get database name from environment
             db_name = os.getenv("MONGODB_NAME", "sloane_ai_service")
