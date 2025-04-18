@@ -40,7 +40,7 @@ cp requirements.txt /tmp/deploy_cache/
 # 6. Create a clean app.yaml file with enhanced environment variables
 echo "Creating app.yaml file..."
 cat > /tmp/deploy_cache/app.yaml << 'EOF'
-runtime: python39
+runtime: python310
 env: flex
 entrypoint: gunicorn -b :$PORT main:app
 
