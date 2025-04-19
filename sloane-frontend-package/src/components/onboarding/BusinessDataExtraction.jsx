@@ -112,6 +112,8 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
           updateProgress(1);
           
           try {
+            console.log("DEFINITELY RUNNING - BEFORE GBP EXTRACTION", Date.now());
+            alert("GBP EXTRACTION STARTING NOW - URL: " + url);
             console.log(`=== GBP EXTRACTION START === Business name: "${url}" ===`);
             
             // Add window-level error tracking for global visibility
