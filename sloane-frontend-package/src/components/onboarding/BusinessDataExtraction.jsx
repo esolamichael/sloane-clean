@@ -241,39 +241,55 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
               
               // Try direct fetch as fallback
               try {
-                console.log('API call failed, trying direct fetch as fallback');
+                console.log('API call failed, trying direct fetch as fallback - using approach from test page');
                 
-                // Try direct fetch to /api/business/scrape-gbp
+                // Use the same approach as in simple-gbp-test.html that's known to work
                 const response = await fetch('/api/business/scrape-gbp', {
                   method: 'POST',
                   headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Cache-Control': 'no-cache'
                   },
                   body: JSON.stringify({
                     business_name: url,
-                    location: 'San Francisco'
+                    location: 'San Francisco',
+                    _t: new Date().getTime() // Add timestamp to avoid caching
                   })
                 });
                 
-                console.log('Direct fetch response status:', response.status);
+                console.log('Direct fetch response status:', response.status, response.statusText);
                 
                 if (!response.ok) {
                   console.error('Direct fetch failed with status:', response.status);
-                  throw new Error(`Direct API call failed with status ${response.status}`);
+                  const errorText = await response.text();
+                  console.error('Error details:', errorText);
+                  throw new Error(`Direct API call failed with status ${response.status}: ${errorText}`);
                 }
                 
-                const responseData = await response.json();
-                console.log('Direct fetch response data:', responseData);
+                // Get the raw response text first for debugging
+                const rawText = await response.text();
+                console.log(`Response length: ${rawText.length} characters`);
                 
-                if (responseData.data) {
-                  extractedBusiness = responseData.data;
-                  console.log('Successfully extracted business data from direct fetch:', extractedBusiness);
-                } else if (responseData.results) {
-                  extractedBusiness = responseData.results;
-                  console.log('Successfully extracted business data from direct fetch results:', extractedBusiness);
-                } else {
-                  console.error('Direct fetch response has invalid structure:', responseData);
-                  throw new Error('Could not extract business data from API response');
+                // Parse the text into JSON
+                try {
+                  const responseData = JSON.parse(rawText);
+                  console.log('Successfully parsed response as JSON:', responseData);
+                  
+                  if (responseData.data) {
+                    extractedBusiness = responseData.data;
+                    console.log('Successfully extracted business data from direct fetch:', extractedBusiness);
+                  } else if (responseData.results) {
+                    extractedBusiness = responseData.results;
+                    console.log('Successfully extracted business data from direct fetch results:', extractedBusiness);
+                  } else {
+                    console.error('Direct fetch response has invalid structure:', responseData);
+                    throw new Error('Could not extract business data from API response');
+                  }
+                } catch (parseError) {
+                  console.error('Failed to parse response as JSON:', parseError);
+                  console.error(`Raw response (first 100 chars): ${rawText.substring(0, 100)}...`);
+                  throw new Error(`Failed to parse API response: ${parseError.message}`);
                 }
               } catch (directError) {
                 console.error('Direct fetch also failed:', directError);

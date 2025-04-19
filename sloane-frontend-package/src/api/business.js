@@ -121,11 +121,11 @@ export const testGBPScraper = async (businessName) => {
     const endpoint = `${apiBaseUrl}/business/scrape-gbp`;
     console.log('🔍 DIRECT TEST: Endpoint URL:', endpoint);
     
+    // Use the exact same approach that works in the test page
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Business-ID': 'test_business_id',
         'Accept': 'application/json',
         'Cache-Control': 'no-cache'
       },
@@ -139,13 +139,24 @@ export const testGBPScraper = async (businessName) => {
     console.log('🔍 DIRECT TEST: GBP scraper status:', response.status);
     console.log('🔍 DIRECT TEST: GBP scraper ok:', response.ok);
     
-    const data = await response.json();
-    console.log('🔍 DIRECT TEST: GBP scraper response:', data);
+    // Get the raw response text first for debugging
+    const rawText = await response.text();
+    console.log(`🔍 DIRECT TEST: Response length: ${rawText.length} characters`);
     
-    return {
-      success: true,
-      result: data
-    };
+    // Parse the text to JSON
+    try {
+      const data = JSON.parse(rawText);
+      console.log('🔍 DIRECT TEST: GBP scraper response:', data);
+      
+      return {
+        success: true,
+        result: data
+      };
+    } catch (parseError) {
+      console.error('🔍 DIRECT TEST: Failed to parse response as JSON:', parseError);
+      console.error(`🔍 DIRECT TEST: Raw response (first 100 chars): ${rawText.substring(0, 100)}...`);
+      throw new Error(`Failed to parse API response: ${parseError.message}`);
+    }
   } catch (error) {
     console.error('🔍 DIRECT TEST: Error testing GBP scraper:', error);
     return {
@@ -327,8 +338,8 @@ const businessApi = {
         throw new Error('No business name provided');
       }
       
-      // Further simplified request - match exactly what works in the test page
-      console.log('*** GBP SCRAPER *** Using test-page-compatible request format');
+      // Use the approach that works in the test page
+      console.log('*** GBP SCRAPER *** Using test-page-compatible request format with fetch');
       
       // Get API URL from the environment or use default
       let apiBaseUrl = '';
@@ -358,62 +369,21 @@ const businessApi = {
       
       console.log('*** GBP SCRAPER *** Request body:', requestBody);
       
-      // Use absolutely minimal fetch, matching what works in test-page exactly
+      // Use plain fetch like in the test page
       console.log('*** GBP SCRAPER *** Sending direct fetch request...');
-      let response;
-      try {
-        // Create a plain XMLHttpRequest directly instead of using fetch
-        // This helps bypass any React-specific CORS or header issues
-        console.log('*** GBP SCRAPER *** Using direct XMLHttpRequest to match test page exactly');
-        
-        response = await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open('POST', endpoint, true);
-          xhr.setRequestHeader('Content-Type', 'application/json');
-          xhr.setRequestHeader('Accept', 'application/json');
-          xhr.setRequestHeader('Cache-Control', 'no-cache');
-          
-          xhr.onload = function() {
-            console.log('*** GBP SCRAPER *** XHR Status:', xhr.status);
-            console.log('*** GBP SCRAPER *** XHR Response Headers:', xhr.getAllResponseHeaders());
-            
-            resolve({
-              ok: xhr.status >= 200 && xhr.status < 300,
-              status: xhr.status,
-              statusText: xhr.statusText,
-              text: () => Promise.resolve(xhr.responseText),
-              json: () => Promise.resolve(JSON.parse(xhr.responseText)),
-              headers: new Map(xhr.getAllResponseHeaders().split('\r\n')
-                .filter(line => line)
-                .map(line => {
-                  const parts = line.split(': ');
-                  return [parts[0], parts[1]];
-                }))
-            });
-          };
-          
-          xhr.onerror = function() {
-            console.error('*** GBP SCRAPER ERROR *** XHR Error:', xhr.statusText);
-            reject(new Error('Network request failed'));
-          };
-          
-          xhr.send(JSON.stringify(requestBody));
-        });
-        
-        console.log(`*** GBP SCRAPER *** Fetch complete. Status: ${response.status} ${response.statusText}`);
-        
-        // Log all response headers for debugging
-        console.log('*** GBP SCRAPER *** Response headers:');
-        const headers = {};
-        response.headers.forEach((value, key) => {
-          headers[key] = value;
-        });
-        console.log(headers);
-      }
-      catch (fetchError) {
-        console.error('*** GBP SCRAPER ERROR *** Network error during fetch:', fetchError);
-        throw new Error(`Network error: ${fetchError.message}`);
-      }
+      
+      // Simple fetch approach that matches the working test page
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      console.log(`*** GBP SCRAPER *** Fetch complete. Status: ${response.status} ${response.statusText}`);
       
       // Immediately check for HTTP errors
       if (!response.ok) {
