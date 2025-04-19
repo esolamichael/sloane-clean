@@ -726,6 +726,8 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
 
   // Get business hours based on business type
   const getBusinessHours = (businessType) => {
+    console.log("GENERATING HOURS for business type:", businessType);
+    
     // Default hours (9-5 weekdays)
     const defaultHours = {
       monday: { isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM' },
@@ -738,9 +740,10 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
     };
     
     // Type-specific hours
+    let result;
     switch (businessType) {
       case 'restaurant':
-        return {
+        result = {
           monday: { isOpen: true, openTime: '7:00 AM', closeTime: '10:00 PM' },
           tuesday: { isOpen: true, openTime: '7:00 AM', closeTime: '10:00 PM' },
           wednesday: { isOpen: true, openTime: '7:00 AM', closeTime: '10:00 PM' },
@@ -749,8 +752,9 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
           saturday: { isOpen: true, openTime: '8:00 AM', closeTime: '11:00 PM' },
           sunday: { isOpen: true, openTime: '8:00 AM', closeTime: '9:00 PM' }
         };
+        break;
       case 'fitness':
-        return {
+        result = {
           monday: { isOpen: true, openTime: '6:00 AM', closeTime: '10:00 PM' },
           tuesday: { isOpen: true, openTime: '6:00 AM', closeTime: '10:00 PM' },
           wednesday: { isOpen: true, openTime: '6:00 AM', closeTime: '10:00 PM' },
@@ -759,9 +763,10 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
           saturday: { isOpen: true, openTime: '7:00 AM', closeTime: '8:00 PM' },
           sunday: { isOpen: true, openTime: '8:00 AM', closeTime: '6:00 PM' }
         };
+        break;
       case 'dentist':
       case 'medical':
-        return {
+        result = {
           monday: { isOpen: true, openTime: '8:00 AM', closeTime: '5:00 PM' },
           tuesday: { isOpen: true, openTime: '8:00 AM', closeTime: '5:00 PM' },
           wednesday: { isOpen: true, openTime: '8:00 AM', closeTime: '5:00 PM' },
@@ -770,126 +775,146 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
           saturday: { isOpen: true, openTime: '9:00 AM', closeTime: '1:00 PM' },
           sunday: { isOpen: false, openTime: '', closeTime: '' }
         };
+        break;
       default:
-        return defaultHours;
+        result = defaultHours;
     }
+    
+    console.log("GENERATED HOURS:", result);
+    return result;
   };
 
   // Get business services based on business type
   const getBusinessServices = (businessType) => {
+    console.log("GENERATING SERVICES for business type:", businessType);
+    
+    let result;
     // For custom businesses, try to guess appropriate services based on name
     if (businessType === 'custom') {
       const businessName = inputValue.toLowerCase();
       
       // Check for different business types in the name
       if (businessName.includes('dental') || businessName.includes('dentist') || businessName.includes('smile')) {
-        return [
+        result = [
           { name: 'Teeth Cleaning', description: 'Professional dental cleaning', price: '$120' },
           { name: 'Dental Checkup', description: 'Comprehensive dental examination', price: '$85' },
           { name: 'Teeth Whitening', description: 'Professional whitening treatment', price: '$250' },
           { name: 'Dental Filling', description: 'Tooth restoration', price: '$175' }
         ];
       } else if (businessName.includes('tech') || businessName.includes('IT') || businessName.includes('computer') || businessName.includes('digital')) {
-        return [
+        result = [
           { name: 'IT Consulting', description: 'Technology strategy and planning', price: '$150/hr' },
           { name: 'Network Setup', description: 'Business network installation', price: '$1,200' },
           { name: 'Cloud Migration', description: 'Migrate systems to cloud platforms', price: '$3,500' },
           { name: 'Cybersecurity', description: 'Security assessment and implementation', price: '$2,000' }
         ];
       } else if (businessName.includes('fitness') || businessName.includes('gym') || businessName.includes('workout') || businessName.includes('health')) {
-        return [
+        result = [
           { name: 'Personal Training', description: 'One-on-one fitness coaching', price: '$80/session' },
           { name: 'Group Classes', description: 'Various fitness classes', price: '$25/class' },
           { name: 'Membership', description: 'Monthly gym access', price: '$89/month' },
           { name: 'Nutrition Consultation', description: 'Personalized nutrition plan', price: '$120' }
         ];
       } else if (businessName.includes('restaurant') || businessName.includes('cafe') || businessName.includes('bistro') || businessName.includes('kitchen')) {
-        return [
+        result = [
           { name: 'Lunch Special', description: 'Weekday lunch menu', price: '$15' },
           { name: 'Dinner Menu', description: 'Full dinner service', price: '$25-45' },
           { name: 'Catering', description: 'Group and event catering', price: 'Varies' },
           { name: 'Private Dining', description: 'Reserved dining areas', price: 'Minimum spend $500' }
         ];
       } else if (businessName.includes('salon') || businessName.includes('hair') || businessName.includes('beauty') || businessName.includes('spa')) {
-        return [
+        result = [
           { name: 'Haircut', description: 'Professional styling', price: '$45-65' },
           { name: 'Color Treatment', description: 'Hair coloring services', price: '$80-120' },
           { name: 'Manicure', description: 'Nail care service', price: '$35' },
           { name: 'Facial', description: 'Skin treatment', price: '$75' }
         ];
       } else if (businessName.includes('medical') || businessName.includes('clinic') || businessName.includes('health') || businessName.includes('doctor')) {
-        return [
+        result = [
           { name: 'General Consultation', description: 'Initial medical consultation', price: '$150' },
           { name: 'Physical Examination', description: 'Comprehensive health checkup', price: '$200' },
           { name: 'Follow-up Visit', description: 'Post-treatment check', price: '$100' },
           { name: 'Specialized Testing', description: 'Medical diagnostic tests', price: '$75-400' }
         ];
+      } else {
+        // Default custom business services
+        result = [
+          { name: `${inputValue} Standard Service`, description: 'Our most popular service', price: '$99' },
+          { name: `${inputValue} Premium Package`, description: 'Enhanced service offering', price: '$149' },
+          { name: 'Consultation', description: 'Professional consultation', price: '$75' },
+          { name: 'Custom Solutions', description: 'Tailored to your specific needs', price: 'Varies' }
+        ];
       }
-      
-      // Default custom business services
-      return [
-        { name: `${inputValue} Standard Service`, description: 'Our most popular service', price: '$99' },
-        { name: `${inputValue} Premium Package`, description: 'Enhanced service offering', price: '$149' },
-        { name: 'Consultation', description: 'Professional consultation', price: '$75' },
-        { name: 'Custom Solutions', description: 'Tailored to your specific needs', price: 'Varies' }
-      ];
+      // Result already populated for custom type
+      return result;
     }
     
     // For predefined business types
     switch (businessType) {
       case 'dentist':
-        return [
+        result = [
           { name: 'Teeth Cleaning', description: 'Professional dental cleaning', price: '$120' },
           { name: 'Dental Checkup', description: 'Comprehensive dental examination', price: '$85' },
           { name: 'Teeth Whitening', description: 'Professional whitening treatment', price: '$250' },
           { name: 'Dental Filling', description: 'Tooth restoration', price: '$175' }
         ];
+        break;
       case 'tech_services':
-        return [
+        result = [
           { name: 'IT Consulting', description: 'Technology strategy and planning', price: '$150/hr' },
           { name: 'Network Setup', description: 'Business network installation', price: '$1,200' },
           { name: 'Cloud Migration', description: 'Migrate systems to cloud platforms', price: '$3,500' },
           { name: 'Cybersecurity', description: 'Security assessment and implementation', price: '$2,000' }
         ];
+        break;
       case 'fitness':
-        return [
+        result = [
           { name: 'Personal Training', description: 'One-on-one fitness coaching', price: '$80/session' },
           { name: 'Group Classes', description: 'Various fitness classes', price: '$25/class' },
           { name: 'Membership', description: 'Monthly gym access', price: '$89/month' },
           { name: 'Nutrition Consultation', description: 'Personalized nutrition plan', price: '$120' }
         ];
+        break;
       case 'restaurant':
-        return [
+        result = [
           { name: 'Lunch Special', description: 'Weekday lunch menu', price: '$15' },
           { name: 'Dinner Menu', description: 'Full dinner service', price: '$25-45' },
           { name: 'Catering', description: 'Group and event catering', price: 'Varies' },
           { name: 'Private Dining', description: 'Reserved dining areas', price: 'Minimum spend $500' }
         ];
+        break;
       case 'salon':
-        return [
+        result = [
           { name: 'Haircut', description: 'Professional styling', price: '$45-65' },
           { name: 'Color Treatment', description: 'Hair coloring services', price: '$80-120' },
           { name: 'Manicure', description: 'Nail care service', price: '$35' },
           { name: 'Facial', description: 'Skin treatment', price: '$75' }
         ];
+        break;
       case 'medical':
-        return [
+        result = [
           { name: 'General Consultation', description: 'Initial medical consultation', price: '$150' },
           { name: 'Physical Examination', description: 'Comprehensive health checkup', price: '$200' },
           { name: 'Follow-up Visit', description: 'Post-treatment check', price: '$100' },
           { name: 'Specialized Testing', description: 'Medical diagnostic tests', price: '$75-400' }
         ];
+        break;
       default:
-        return [
+        result = [
           { name: 'Standard Service', description: 'Our most popular service', price: '$99' },
           { name: 'Premium Package', description: 'Enhanced service offering', price: '$149' },
           { name: 'Consultation', description: 'Professional consultation', price: '$75' }
         ];
     }
+    
+    console.log("GENERATED SERVICES:", result);
+    return result;
   };
 
   // Get business FAQs based on business type
   const getBusinessFAQs = (businessType) => {
+    console.log("GENERATING FAQs for business type:", businessType);
+    
     const generalFAQs = [
       { 
         question: 'What are your hours of operation?', 
@@ -900,6 +925,8 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
         answer: 'Yes, we accept all major credit cards including Visa, MasterCard, American Express, and Discover.'
       }
     ];
+    
+    let result = [];
     
     // For custom businesses, create FAQs based on the name
     if (businessType === 'custom') {
@@ -938,7 +965,9 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
         ];
       }
       
-      return [...customFAQs, ...generalFAQs];
+      result = [...customFAQs, ...generalFAQs];
+      console.log("GENERATED CUSTOM FAQs:", result);
+      return result;
     }
     
     // For predefined business types
@@ -994,7 +1023,9 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
         ];
     }
     
-    return [...specificFAQs, ...generalFAQs];
+    result = [...specificFAQs, ...generalFAQs];
+    console.log("GENERATED TYPE-SPECIFIC FAQs:", result);
+    return result;
   };
 
   return (
