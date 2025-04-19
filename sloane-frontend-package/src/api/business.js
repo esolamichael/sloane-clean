@@ -320,15 +320,15 @@ const businessApi = {
   // Scrape Google Business Profile data
   scrapeGBP: async (businessName, location = null) => {
     try {
-      console.log(`Attempting to scrape GBP for business: ${businessName}`);
+      console.log(`*** GBP SCRAPER START *** Business: ${businessName}`);
       
       // Validate business name
       if (!businessName) {
         throw new Error('No business name provided');
       }
       
-      // Simplify request - use minimal headers for compatibility with all servers
-      console.log('Using simplified fetch request for better compatibility');
+      // Further simplified request - match exactly what works in the test page
+      console.log('*** GBP SCRAPER *** Using test-page-compatible request format');
       
       // Get API URL from the environment or use default
       let apiBaseUrl = '';
@@ -336,89 +336,171 @@ const businessApi = {
       // If running locally, use the local API
       if (process.env.NODE_ENV === 'development') {
         apiBaseUrl = 'http://localhost:8000/api';
-        console.log('Using local API for scraping GBP:', apiBaseUrl);
+        console.log('*** GBP SCRAPER *** Using local API:', apiBaseUrl);
       } else {
         // For production, use relative URL for Netlify -> App Engine proxy
         apiBaseUrl = '/api';
-        console.log('Using production API for scraping GBP:', apiBaseUrl);
+        console.log('*** GBP SCRAPER *** Using production API with relative path:', apiBaseUrl);
       }
       
       const endpoint = `${apiBaseUrl}/business/scrape-gbp`;
-      console.log(`Making request to: ${endpoint}`);
+      console.log(`*** GBP SCRAPER *** Request URL: ${endpoint}`);
       
       // Add timestamp to avoid caching
       const timestamp = new Date().getTime();
       
-      // Create request body
+      // Create request body - simplified to match test page structure
       const requestBody = {
         business_name: businessName,
         location: location || "San Francisco", // Provide default location if none
         _t: timestamp // Add timestamp to avoid caching
       };
       
-      console.log('Request body:', requestBody);
+      console.log('*** GBP SCRAPER *** Request body:', requestBody);
       
-      // Use simpler fetch with fewer customizations - more like the successful test page
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-      });
-      
-      console.log('Received response:', {
-        status: response.status,
-        statusText: response.statusText
-      });
-      
-      // Get raw text first so we can debug if JSON parsing fails
-      const responseText = await response.text();
-      console.log('Raw response length:', responseText.length);
-      
-      let data;
+      // Use absolutely minimal fetch, matching what works in test-page exactly
+      console.log('*** GBP SCRAPER *** Sending direct fetch request...');
+      let response;
       try {
-        // Try to parse as JSON
-        data = JSON.parse(responseText);
-        console.log('Scrape GBP response parsed successfully');
-      } catch (parseError) {
-        console.error('Failed to parse response as JSON:', parseError);
-        console.error('Raw response preview:', responseText.substring(0, 500));
-        throw new Error('Invalid JSON response from server');
+        // Create a plain XMLHttpRequest directly instead of using fetch
+        // This helps bypass any React-specific CORS or header issues
+        console.log('*** GBP SCRAPER *** Using direct XMLHttpRequest to match test page exactly');
+        
+        response = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', endpoint, true);
+          xhr.setRequestHeader('Content-Type', 'application/json');
+          xhr.setRequestHeader('Accept', 'application/json');
+          xhr.setRequestHeader('Cache-Control', 'no-cache');
+          
+          xhr.onload = function() {
+            console.log('*** GBP SCRAPER *** XHR Status:', xhr.status);
+            console.log('*** GBP SCRAPER *** XHR Response Headers:', xhr.getAllResponseHeaders());
+            
+            resolve({
+              ok: xhr.status >= 200 && xhr.status < 300,
+              status: xhr.status,
+              statusText: xhr.statusText,
+              text: () => Promise.resolve(xhr.responseText),
+              json: () => Promise.resolve(JSON.parse(xhr.responseText)),
+              headers: new Map(xhr.getAllResponseHeaders().split('\r\n')
+                .filter(line => line)
+                .map(line => {
+                  const parts = line.split(': ');
+                  return [parts[0], parts[1]];
+                }))
+            });
+          };
+          
+          xhr.onerror = function() {
+            console.error('*** GBP SCRAPER ERROR *** XHR Error:', xhr.statusText);
+            reject(new Error('Network request failed'));
+          };
+          
+          xhr.send(JSON.stringify(requestBody));
+        });
+        
+        console.log(`*** GBP SCRAPER *** Fetch complete. Status: ${response.status} ${response.statusText}`);
+        
+        // Log all response headers for debugging
+        console.log('*** GBP SCRAPER *** Response headers:');
+        const headers = {};
+        response.headers.forEach((value, key) => {
+          headers[key] = value;
+        });
+        console.log(headers);
+      }
+      catch (fetchError) {
+        console.error('*** GBP SCRAPER ERROR *** Network error during fetch:', fetchError);
+        throw new Error(`Network error: ${fetchError.message}`);
       }
       
-      console.log('Parsed response data:', data);
+      // Immediately check for HTTP errors
+      if (!response.ok) {
+        console.error(`*** GBP SCRAPER ERROR *** HTTP error! Status: ${response.status}`);
+        // Try to get error details
+        try {
+          const errorText = await response.text();
+          console.error('*** GBP SCRAPER ERROR *** Error details:', errorText);
+          throw new Error(`HTTP error! Status: ${response.status}, Details: ${errorText}`);
+        } catch (e) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+      }
+      
+      // Read response as JSON directly - simplify the flow
+      console.log('*** GBP SCRAPER *** Reading response as JSON...');
+      let data;
+      try {
+        data = await response.json();
+        console.log('*** GBP SCRAPER *** Successfully parsed JSON response');
+      } catch (jsonError) {
+        console.error('*** GBP SCRAPER ERROR *** Failed to parse response as JSON:', jsonError);
+        // Try to read as text for debugging
+        try {
+          const text = await response.text();
+          console.error('*** GBP SCRAPER ERROR *** Raw response:', text.substring(0, 500));
+        } catch (e) {}
+        throw new Error(`Invalid JSON response: ${jsonError.message}`);
+      }
+      
+      console.log('*** GBP SCRAPER *** Response data:', data);
       
       // Handle response with error field
       if (data && data.success === false) {
-        console.error('API returned error message:', data.error);
+        console.error('*** GBP SCRAPER ERROR *** API returned error:', data.error);
         throw new Error(data.error || 'API error occurred when scraping GBP data');
       }
       
-      // Handle HTTP errors
-      if (!response.ok) {
-        console.error(`HTTP error! Status: ${response.status}`);
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-      
-      // Success case - ensure data is properly formatted
-      if (!data.data && data.results) {
-        // Handle possible alternative response format
-        console.log('Converting alternative response format with results property');
+      // Success case - handle different response formats
+      if (data.data) {
+        // Standard format with data property
+        console.log('*** GBP SCRAPER SUCCESS *** Standard format with data property');
+        return data;
+      } else if (data.results) {
+        // Alternative format with results property
+        console.log('*** GBP SCRAPER SUCCESS *** Alternative format with results property');
         return {
           success: true,
           data: data.results
         };
+      } else if (data.name || data.business_name) {
+        // Direct business data format
+        console.log('*** GBP SCRAPER SUCCESS *** Direct business data format');
+        return {
+          success: true,
+          data: data
+        };
       }
       
-      return data;
+      console.log('*** GBP SCRAPER SUCCESS *** Request completed successfully');
+      return {
+        success: true,
+        data: data
+      };
     } catch (error) {
-      console.error("Error scraping Google Business Profile:", error);
-      if (error.name === 'AbortError') {
-        throw new Error('Request timed out. The server took too long to respond.');
-      }
-      throw error;
+      console.error("*** GBP SCRAPER FATAL ERROR ***", error);
+      console.error("*** GBP SCRAPER STACK TRACE ***", error.stack);
+      
+      // Add more context to the error for better debugging
+      const enhancedError = new Error(`GBP Scraper Error: ${error.message}`);
+      enhancedError.originalError = error;
+      enhancedError.timestamp = new Date().toISOString();
+      
+      // Try to add performance metrics if available
+      try {
+        if (window.performance && window.performance.getEntriesByType) {
+          const resources = window.performance.getEntriesByType('resource');
+          const apiCalls = resources.filter(r => r.name.includes('/api/') && r.name.includes('scrape'));
+          enhancedError.performanceData = apiCalls.map(call => ({
+            url: call.name,
+            duration: call.duration,
+            size: call.transferSize
+          }));
+        }
+      } catch (e) {}
+      
+      throw enhancedError;
     }
   },
   

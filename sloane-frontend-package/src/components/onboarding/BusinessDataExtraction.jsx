@@ -112,25 +112,70 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
           updateProgress(1);
           
           try {
-            console.log(`Attempting to scrape Google Business Profile for: ${url}`);
+            console.log(`=== GBP EXTRACTION START === Business name: "${url}" ===`);
             
-            // Log that we are using the real API, not mock data
-            console.log('IMPORTANT: Using real Google Business Profile API scraping - NO MOCK DATA');
+            // Add window-level error tracking for global visibility
+            window.gbpDebugInfo = {
+              status: 'Starting scrape',
+              businessName: url,
+              startTime: new Date().toISOString(),
+              errors: []
+            };
             
             // Validate business name is provided
             if (!url || url.trim() === '') {
+              window.gbpDebugInfo.errors.push('Empty business name provided');
               throw new Error('Please enter a valid business name');
             }
             
-            console.log('Business name validated:', url);
+            console.log('=== GBP EXTRACTION === Business name validated:', url);
             
-            // Use direct API call with minimal error handling to see if we can get any response
+            // Use direct API call with enhanced error logging
             try {
-              console.log('Making direct API call to scrape GBP with business name:', url);
+              console.log('=== GBP EXTRACTION === Calling businessApi.scrapeGBP with:', url);
+              window.gbpDebugInfo.status = 'Calling API';
+              window.gbpDebugInfo.requestTime = new Date().toISOString();
               
-              // Call the backend API endpoint that uses Secret Manager for the API key
-              result = await businessApi.scrapeGBP(url);
-              console.log('GBP scraper response received:', result);
+              // First try regular API call
+              console.log('=== GBP EXTRACTION === Using direct businessApi.scrapeGBP method');
+              try {
+                // Call the backend API endpoint that uses Secret Manager for the API key
+                result = await businessApi.scrapeGBP(url);
+                
+                console.log('=== GBP EXTRACTION === API call completed successfully');
+                window.gbpDebugInfo.status = 'API call completed';
+                window.gbpDebugInfo.result = result;
+                
+                // Log API response for debugging
+                if (result) {
+                  console.log('=== GBP EXTRACTION === Response received, type:', typeof result);
+                  console.log('=== GBP EXTRACTION === Has data property:', !!result.data);
+                  console.log('=== GBP EXTRACTION === Success flag:', result.success);
+                } else {
+                  console.error('=== GBP EXTRACTION ERROR === No result object returned');
+                  window.gbpDebugInfo.errors.push('API returned undefined or null');
+                }
+              } catch (primaryError) {
+                console.error('=== GBP EXTRACTION ERROR === Primary API call failed:', primaryError);
+                window.gbpDebugInfo.errors.push({
+                  message: primaryError.message,
+                  timestamp: new Date().toISOString(),
+                  source: 'businessApi.scrapeGBP'
+                });
+                
+                // Try fallback with direct fetch
+                console.log('=== GBP EXTRACTION === Attempting fallback with direct fetch');
+                console.log('=== GBP EXTRACTION === Using testGBPScraper method as fallback');
+                
+                // Use the test function that works in the test page
+                const testResult = await businessApi.testGBPScraper(url);
+                if (testResult && testResult.success) {
+                  console.log('=== GBP EXTRACTION === Fallback succeeded:', testResult);
+                  result = testResult;
+                } else {
+                  throw primaryError; // Re-throw original error if fallback also fails
+                }
+              }
               
               // Detailed validation and error handling
               if (!result) {
@@ -157,6 +202,10 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
                 if (result.results) {
                   console.log('Using results property from response');
                   result.data = result.results;
+                } else if (result.result && typeof result.result === 'object') {
+                  // Extract from testGBPScraper result
+                  console.log('Using result property from testGBPScraper response');
+                  result.data = result.result;
                 } else {
                   // If the result itself looks like business data, use it directly
                   if (result.name || result.business_name) {
@@ -238,12 +287,45 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
               metadata: { success: true, timestamp: new Date().toISOString() }
             }));
           } catch (error) {
-            console.error('❌ Error scraping Google Business Profile:', error);
+            console.error('=== GBP EXTRACTION CRITICAL ERROR ===');
+            console.error('Error scraping Google Business Profile:', error);
             console.error('Error details:', {
               message: error.message,
               name: error.name,
               stack: error.stack
             });
+            
+            // Update global debug info
+            window.gbpDebugInfo.status = 'Error';
+            window.gbpDebugInfo.errors.push({
+              message: error.message,
+              stack: error.stack,
+              timestamp: new Date().toISOString()
+            });
+            window.gbpDebugInfo.endTime = new Date().toISOString();
+            
+            // Try to get more network information if available
+            try {
+              const performance = window.performance;
+              if (performance && performance.getEntriesByType) {
+                const resources = performance.getEntriesByType('resource');
+                const apiCalls = resources.filter(r => r.name.includes('/api/') && r.name.includes('scrape'));
+                
+                if (apiCalls.length > 0) {
+                  console.log('=== GBP EXTRACTION === Network Information ===');
+                  console.table(apiCalls.map(call => ({
+                    url: call.name,
+                    duration: call.duration.toFixed(2) + 'ms',
+                    status: call.responseStatus || 'unknown',
+                    size: (call.transferSize / 1024).toFixed(2) + 'KB'
+                  })));
+                  
+                  window.gbpDebugInfo.networkInfo = apiCalls;
+                }
+              }
+            } catch (perfError) {
+              console.log('Error collecting performance data:', perfError);
+            }
             
             // Set a clear error message for the user
             let errorMessage = `Error retrieving business data: ${error.message}`;
@@ -254,6 +336,7 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
             }
             
             setError(errorMessage);
+            console.error('=== GBP EXTRACTION === User error message:', errorMessage);
             
             // No fallback to mock data - explicitly throw error to prevent proceeding
             if (onError) {

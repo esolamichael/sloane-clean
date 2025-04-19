@@ -65,10 +65,18 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
     const initAndActivate = () => {
       console.log('✅ Initializing Google services from callback');
       try {
+        // Even if there's a version warning, we should still try to use the API
+        // Version warnings appear in console but don't affect functionality
         initializeGoogleServices();
         setGoogleApiLoaded(true);
         setUseGooglePlaces(true);
         setGoogleApiError(null);
+        
+        // Special handling for version warnings which don't completely break functionality
+        if (window.googleMapsConfig?.loadingWarnings?.length > 0) {
+          console.warn('⚠️ Google Maps API loaded with warnings:', window.googleMapsConfig.loadingWarnings);
+          // Continue using the API despite warnings
+        }
       } catch (err) {
         console.error('❌ Error initializing Google services:', err);
         setGoogleApiError(`Error initializing Google services: ${err.message}`);

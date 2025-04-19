@@ -25,20 +25,49 @@
     <script>
       // Configuration and state tracking
       window.googleMapsConfig = {
-        apiVersion: '3.53',
+        apiVersion: 'quarterly',  // Updated from '3.53' (retired) to 'quarterly'
         libraries: ['places'],
         retryCount: 0,
         maxRetries: 3,
         retryDelay: 3000,
         loadTimestamp: new Date().getTime(),
         checkInterval: null,
-        status: 'INITIALIZING'
+        status: 'INITIALIZING',
+        loadingWarnings: [] // Track warnings that shouldn't prevent functionality
       };
       
       // Initialize callback framework for Google Maps API
       window.googleMapsCallbacks = [];
       window.googleMapsLoaded = false;
       window.googleApiError = null;
+      
+      // Override console.warn to capture Google Maps warnings without breaking functionality
+      const originalWarn = console.warn;
+      console.warn = function() {
+        // Check if this is a Google Maps warning
+        const warningText = Array.from(arguments).join(' ');
+        if (warningText.includes('Google Maps') || 
+            warningText.includes('googleapis') || 
+            warningText.includes('maps.google')) {
+          
+          // Store warning in config
+          if (window.googleMapsConfig) {
+            window.googleMapsConfig.loadingWarnings.push(warningText);
+          }
+          
+          // Check if it's just a version warning, which shouldn't break functionality
+          if (warningText.includes('version') || 
+              warningText.includes('deprecated') || 
+              warningText.includes('retired')) {
+            // Log warning but don't set error state
+            originalWarn.apply(console, arguments);
+            return;
+          }
+        }
+        
+        // Call original warning function
+        originalWarn.apply(console, arguments);
+      };
       
       // Callback function that Google Maps API will call when loaded
       window.initGoogleMapsAPI = function() {
