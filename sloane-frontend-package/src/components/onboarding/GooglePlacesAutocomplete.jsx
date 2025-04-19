@@ -621,9 +621,11 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
       // For Google Places results, fetch more details
       if (business.isGooglePlace) {
         const placeDetails = await getPlaceDetails(business.id);
+        console.log("PLACE DETAILS FULL OBJECT:", placeDetails);
         
         // Determine business type from place types
         const businessType = getBusinessTypeFromTypes(placeDetails.types);
+        console.log("BUSINESS TYPE:", businessType);
         
         // Format Google Places result
         const formattedBusiness = {
@@ -641,9 +643,20 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
           faqs: getBusinessFAQs(businessType)
         };
         
+        console.log("FORMATTED BUSINESS DATA:", formattedBusiness);
+        
         // Pass formatted business data to parent component
+        console.log("CALLING onBusinessSelect WITH:", formattedBusiness);
+        console.log("onBusinessSelect IS:", onBusinessSelect);
+        
+        // Store data for debugging
+        window.lastFormattedBusiness = formattedBusiness;
+        
         if (onBusinessSelect) {
           onBusinessSelect(formattedBusiness);
+          console.log("CALLBACK CALLED");
+        } else {
+          console.error("ERROR: onBusinessSelect is not a function", onBusinessSelect);
         }
       } else {
         // For fallback data, use the business object directly

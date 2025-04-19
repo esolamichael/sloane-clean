@@ -131,14 +131,23 @@ const EnhancedOnboardingPage = () => {
   
   // Handle business selection from Google Places Autocomplete
   const handleBusinessSelect = async (businessData) => {
+    console.log("PARENT: handleBusinessSelect CALLED WITH:", businessData);
+    
     // Save the selected business ID
     setSelectedBusiness(businessData.id);
+    console.log("PARENT: Set selected business ID:", businessData.id);
     
     // Set the business data from the Google Places API
     setSelectedBusinessData(businessData);
+    console.log("PARENT: Set selected business data");
     
     // Open the data extraction dialog to show the process
+    console.log("PARENT: About to open extraction dialog");
     setIsExtractionDialogOpen(true);
+    console.log("PARENT: Dialog should be open now");
+    
+    // Store data globally for debugging
+    window.selectedBusinessInParent = businessData;
   };
   
   // Handle business data extraction completion
