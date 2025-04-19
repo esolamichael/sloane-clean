@@ -1081,7 +1081,12 @@ const GooglePlacesAutocomplete = ({ onBusinessSelect }) => {
               <React.Fragment key={business.id}>
                 <ListItem 
                   button 
-                  onClick={() => handleSelectBusiness(business)}
+                  onClick={(e) => {
+                    console.log("CLICKED ITEM:", business);
+                    // Use a direct function call to debug
+                    window.selectedBusiness = business;
+                    handleSelectBusiness(business);
+                  }}
                   sx={{ py: 1.5 }}
                 >
                   <ListItemIcon sx={{ minWidth: 40 }}>
