@@ -74,7 +74,12 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
   ];
 
   useEffect(() => {
+    console.log("BusinessDataExtraction useEffect triggered with props:", { 
+      source, url, businessData: businessData ? "Present" : "Not present" 
+    });
+    
     const fetchBusinessData = async () => {
+      console.log("fetchBusinessData started");
       try {
         let result;
         let extractedBusiness;
@@ -85,6 +90,7 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
         };
         
         // Connect step
+        console.log("Starting connect step");
         setCurrentStep('connect');
         updateProgress(0);
         setCompletedSteps(prev => ({
@@ -93,8 +99,18 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
         }));
         await new Promise(resolve => setTimeout(resolve, 1000));
         
+        // Log the exact condition we're evaluating
+        console.log("Evaluating data source conditions:", {
+          source,
+          businessDataExists: !!businessData,
+          sourceIsGoogle: source === 'google',
+          condition1: source === 'google' && businessData, 
+          condition2: source === 'google' && !businessData
+        });
+        
         // Extract data based on source
         if (source === 'google' && businessData) {
+          console.log("CONDITION 1: Using provided Google Business Profile data");
           // Use selected Google Business Profile data
           setCurrentStep('metadata');
           updateProgress(1);
@@ -103,10 +119,15 @@ const BusinessDataExtraction = ({ url, source, businessData, onComplete, onError
             metadata: { success: true, timestamp: new Date().toISOString() }
           }));
           
+          // Store for debugging
+          window.extractionBusinessData = businessData;
+          console.log("Using business data that was passed in:", businessData);
+          
           // Use the business data that was passed in
           extractedBusiness = businessData;
           
         } else if (source === 'google' && !businessData) {
+          console.log("CONDITION 2: Need to call Google Business Profile API");
           // Use Google Business Profile API to scrape data
           setCurrentStep('metadata');
           updateProgress(1);
